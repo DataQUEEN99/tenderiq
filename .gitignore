@@ -1,0 +1,51 @@
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/*.local
+frontend/.env
+frontend/.env.local
+
+# Python
+backend/__pycache__/
+backend/*.py[cod]
+backend/venv/
+backend/env/
+backend/*.egg-info/
+backend/dist/
+backend/build/
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/coverage/
+backend/htmlcov/
+backend/.coverage
+backend/*.db
+backend/*.sqlite3
+backend/data/
+backend/uploads/
+backend/vectorstore/
+backend/*.log
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+.env
+.env.local
+.env.*.local
+node_modules
+
+# Claude Code session
+.claude/

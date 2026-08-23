@@ -1,0 +1,85 @@
+version: '3.8'
+
+# Development override - enables hot reload and debugging
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    # Development: disable synchronous commit for speed
+    command: postgres -c synchronous_commit=off -c fsync=off
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  chroma:
+    ports:
+      - "8001:8000"
+    environment:
+      - LOG_LEVEL=DEBUG
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: tenderiq_backend_dev
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - RELOAD=true
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data
+      # Exclude __pycache__ and .pytest_cache from sync
+      - /app/__pycache__
+      - /app/.pytest_cache
+    ports:
+      - "8000:8000"
+    command: ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - __pycache__/
+            - .pytest_cache/
+            - *.pyc
+            - .env
+            - data/
+            - chroma_db/
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: tenderiq_frontend_dev
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/dist
+    ports:
+      - "5173:5173"
+      - "24678:24678"  # Vite HMR port
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+            - dist/
+            - .env
+            - *.log
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
+  backend_data:
