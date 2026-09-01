@@ -6,7 +6,7 @@ from app.shared.database.session import get_db
 from app.modules.chat.service import ChatService
 from app.modules.chat.schemas import (
     ChatSessionCreate, ChatSessionUpdate, ChatSessionResponse,
-    ChatSessionResponse, ChatSessionDetailResponse, ChatMessageResponse,
+    ChatSessionDetailResponse, ChatMessageResponse,
     ChatRequest, ChatResponse, ChatSessionListResponse
 )
 from app.modules.chat.models import ChatSessionStatus
@@ -25,7 +25,7 @@ async def create_session(
     current_user: User = Depends(require_permission(Permission.CHAT_CREATE)),
 ):
     service = ChatService(db)
-    return await service.create_session(current_user.organization_id, current_user.id, request)
+    return await service.create_session(current_user.organization_id, current_user.user_id, request)
 
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
@@ -60,7 +60,6 @@ async def update_session(
 
 
 @router.post("/sessions/{session_id}/messages", response_model=ChatResponse)
-@router.post("/sessions/{session_id}/message", response_model=ChatResponse)
 async def send_message(
     session_id: UUID,
     request: ChatRequest,
@@ -68,7 +67,7 @@ async def send_message(
     current_user: User = Depends(require_permission(Permission.CHAT_MESSAGE)),
 ):
     service = ChatService(db)
-    return await service.send_message(session_id, current_user.organization_id, request, current_user.id)
+    return await service.send_message(session_id, current_user.organization_id, request, current_user.user_id)
 
 
 @router.get("/sessions", response_model=ChatSessionListResponse)

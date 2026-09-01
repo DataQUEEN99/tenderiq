@@ -4,8 +4,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.shared.database.session import get_db
 from app.modules.user_management.service import UserManagementService
 from app.modules.user_management.schemas import (
-    UserInviteRequest, UserInviteResponse, UserRoleUpdate,
-    UserListResponse, UserAcceptInvitationRequest
+    UserRoleUpdate, UserListResponse, UserInviteRequest, UserInviteResponse
 )
 from app.modules.authentication.schemas import UserResponse
 from app.shared.security.auth_dependencies import get_current_user, require_permission
@@ -13,29 +12,6 @@ from app.modules.authentication.models import User
 from app.shared.security.permissions import Permission
 
 router = APIRouter(prefix="/users", tags=["User Management"])
-
-
-@router.post("/invite", response_model=UserInviteResponse, status_code=status.HTTP_201_CREATED)
-async def invite_user(
-    request: UserInviteRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.USER_INVITE)),
-):
-    service = UserManagementService(db)
-    return await service.invite_user(current_user.organization_id, current_user.id, request)
-
-
-@router.post("/accept-invitation", response_model=UserResponse, status_code=status.HTTP_200_OK)
-async def accept_invitation(
-    request: UserAcceptInvitationRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    service = UserManagementService(db)
-    return await service.accept_invitation(
-        token=request.token,
-        password=request.password,
-        full_name=request.full_name,
-    )
 
 
 @router.get("", response_model=UserListResponse)
@@ -48,6 +24,16 @@ async def list_users(
     service = UserManagementService(db)
     items, total = await service.list_users(current_user.organization_id, page, page_size)
     return UserListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.post("/invite", response_model=UserInviteResponse, status_code=status.HTTP_201_CREATED)
+async def invite_user(
+    request: UserInviteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USER_INVITE)),
+):
+    service = UserManagementService(db)
+    return await service.invite_user(current_user.organization_id, request, current_user)
 
 
 @router.patch("/{user_id}/role", response_model=UserResponse)

@@ -13,12 +13,24 @@ class VectorIndexer:
     @property
     def client(self):
         if self._client is None:
-            self._client = chromadb.HttpClient(
+            self._client = self._create_client()
+        return self._client
+
+    def _create_client(self):
+        """Create ChromaDB client based on configuration mode."""
+        if self.settings.chroma_mode == "local":
+            # Local persistent client for development
+            return chromadb.PersistentClient(
+                path=self.settings.chromadb_path,
+                settings=ChromaSettings(anonymized_telemetry=False)
+            )
+        else:
+            # HTTP client for production (Docker)
+            return chromadb.HttpClient(
                 host=self.settings.chroma_host,
                 port=self.settings.chroma_port,
                 settings=ChromaSettings(anonymized_telemetry=False)
             )
-        return self._client
 
     def _get_collection(self, name: str):
         return self.client.get_or_create_collection(

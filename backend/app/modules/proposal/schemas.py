@@ -34,7 +34,7 @@ class ProposalSectionUpdate(BaseModel):
 
 
 class ProposalSectionResponse(BaseModel):
-    id: str
+    proposal_section_id: str
     title: str
     content: Optional[str]
     order: int
@@ -54,7 +54,7 @@ class ProposalGenerateRequest(BaseModel):
 
 
 class ProposalResponse(BaseModel):
-    id: str
+    proposal_id: str
     title: str
     version: int
     status: ProposalStatus

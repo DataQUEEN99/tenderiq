@@ -19,7 +19,7 @@ class OrganizationStatusUpdate(BaseModel):
 
 
 class OrganizationResponse(BaseModel):
-    id: str
+    organization_id: str
     name: str
     slug: str
     status: OrganizationStatus

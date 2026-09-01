@@ -5,32 +5,26 @@ from app.modules.authentication.models import UserRole
 from app.modules.authentication.schemas import UserResponse
 
 
-class UserInviteRequest(BaseModel):
-    email: EmailStr
-    role: UserRole = UserRole.MEMBER
-
-
-class UserInviteResponse(BaseModel):
-    id: str
-    email: str
-    role: UserRole
-    expires_at: datetime
-    organization_id: str
-    invited_by: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 class UserRoleUpdate(BaseModel):
     role: UserRole
 
 
+class UserInviteRequest(BaseModel):
+    email: EmailStr
+    full_name: str = Field(..., min_length=1, max_length=255)
+    role: UserRole = UserRole.MEMBER
+
+
+class UserInviteResponse(BaseModel):
+    message: str
+    email: str
+    role: UserRole
+    organization_id: str
+
+
 class UserAcceptInvitationRequest(BaseModel):
-    token: str
-    password: str
-    full_name: str
+    token: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=8)
 
 
 class UserListResponse(BaseModel):

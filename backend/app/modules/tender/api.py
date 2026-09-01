@@ -6,15 +6,20 @@ from app.shared.database.session import get_db
 from app.modules.tender.service import TenderService
 from app.modules.tender.schemas import (
     TenderCreate, TenderUpdate, TenderStatusUpdate,
-    TenderDocumentAttach, TenderResponse, TenderDetailResponse, TenderListResponse
+    TenderDocumentAttach, TenderResponse, TenderDetailResponse, TenderListResponse,
+    TenderSummaryCreate, TenderSummaryResponse,
+    EligibilityAnalysisCreate, EligibilityAnalysisResponse,
+    ComplianceMatrixCreate, ComplianceMatrixResponse
 )
 from app.modules.tender.models import TenderStatus
 from app.shared.security.auth_dependencies import get_current_user, require_permission
 from app.modules.authentication.models import User
 from app.shared.security.permissions import Permission
+from app.modules.tender.ai_api import router as ai_router
 
 
 router = APIRouter(prefix="/tenders", tags=["Tenders"])
+router.include_router(ai_router)
 
 
 @router.post("", response_model=TenderResponse, status_code=status.HTTP_201_CREATED)
@@ -24,7 +29,7 @@ async def create_tender(
     current_user: User = Depends(require_permission(Permission.TENDER_CREATE)),
 ):
     service = TenderService(db)
-    return await service.create(current_user.organization_id, current_user.id, request)
+    return await service.create(current_user.organization_id, current_user.user_id, request)
 
 
 @router.get("/{tender_id}", response_model=TenderResponse)
@@ -121,3 +126,105 @@ async def delete_tender(
 ):
     service = TenderService(db)
     await service.delete(tender_id, current_user.organization_id)
+
+
+# TenderSummary endpoints
+@router.post("/{tender_id}/summary", response_model=TenderSummaryResponse, status_code=status.HTTP_201_CREATED)
+async def create_tender_summary(
+    tender_id: UUID,
+    request: TenderSummaryCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.TENDER_READ)),
+):
+    service = TenderService(db)
+    return await service.create_summary(
+        organization_id=current_user.organization_id,
+        tender_id=tender_id,
+        summary_type=request.summary_type,
+        summary_text=request.summary_text,
+        model_used=request.model_used,
+        prompt_hash=request.prompt_hash,
+        tokens_used=request.tokens_used,
+        generation_latency_ms=request.generation_latency_ms,
+        source_document_ids=request.source_document_ids
+    )
+
+
+@router.get("/{tender_id}/summary", response_model=TenderSummaryResponse)
+async def get_tender_summary(
+    tender_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.TENDER_READ)),
+):
+    service = TenderService(db)
+    return await service.get_summary(current_user.organization_id, tender_id)
+
+
+# EligibilityAnalysis endpoints
+@router.post("/{tender_id}/eligibility", response_model=EligibilityAnalysisResponse, status_code=status.HTTP_201_CREATED)
+async def create_eligibility_analysis(
+    tender_id: UUID,
+    request: EligibilityAnalysisCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.TENDER_READ)),
+):
+    service = TenderService(db)
+    return await service.create_eligibility_analysis(
+        organization_id=current_user.organization_id,
+        tender_id=tender_id,
+        company_profile_id=UUID(request.company_profile_id),
+        overall_eligible=request.overall_eligible,
+        eligibility_score=request.eligibility_score,
+        criteria_results=request.criteria_results,
+        missing_requirements=request.missing_requirements,
+        model_used=request.model_used,
+        prompt_hash=request.prompt_hash,
+        tokens_used=request.tokens_used,
+        generation_latency_ms=request.generation_latency_ms
+    )
+
+
+@router.get("/{tender_id}/eligibility", response_model=EligibilityAnalysisResponse)
+async def get_eligibility_analysis(
+    tender_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.TENDER_READ)),
+):
+    service = TenderService(db)
+    return await service.get_eligibility_analysis(current_user.organization_id, tender_id)
+
+
+# ComplianceMatrix endpoints
+@router.post("/{tender_id}/compliance", response_model=ComplianceMatrixResponse, status_code=status.HTTP_201_CREATED)
+async def create_compliance_matrix(
+    tender_id: UUID,
+    request: ComplianceMatrixCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.TENDER_READ)),
+):
+    service = TenderService(db)
+    return await service.create_compliance_matrix(
+        organization_id=current_user.organization_id,
+        tender_id=tender_id,
+        proposal_id=UUID(request.proposal_id),
+        overall_compliance_score=request.overall_compliance_score,
+        mandatory_met=request.mandatory_met,
+        mandatory_total=request.mandatory_total,
+        desirable_met=request.desirable_met,
+        desirable_total=request.desirable_total,
+        requirement_results=request.requirement_results,
+        model_used=request.model_used,
+        prompt_hash=request.prompt_hash,
+        tokens_used=request.tokens_used,
+        generation_latency_ms=request.generation_latency_ms
+    )
+
+
+@router.get("/{tender_id}/compliance", response_model=ComplianceMatrixResponse)
+async def get_compliance_matrix(
+    tender_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.TENDER_READ)),
+):
+    service = TenderService(db)
+    return await service.get_compliance_matrix(current_user.organization_id, tender_id)

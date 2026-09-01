@@ -21,10 +21,9 @@ from app.modules.organization.models import Organization
 from app.modules.document.models import Document
 from app.modules.tender.models import Tender, TenderDocument, TenderSummary, EligibilityAnalysis
 from app.modules.proposal.models import Proposal, ProposalSection, ProposalDocument, ComplianceMatrix
-from app.modules.chat.models import ChatSession, ChatMessage, ChatContext
+from app.modules.chat.models import ChatSession, ChatMessage
 from app.modules.export.models import Export
 from app.modules.company.models import CompanyProfile, CompanyDocument
-from app.modules.user_management.models import UserInvitation
 from app.modules.audit.models import AuditLog
 
 # this is the Alembic Config object, which provides

@@ -10,6 +10,9 @@ from app.modules.proposal.schemas import (
     ProposalResponse, ProposalDetailResponse, ProposalListResponse,
     ProposalGenerateRequest
 )
+from app.modules.tender.schemas import (
+    ComplianceMatrixCreate, ComplianceMatrixResponse
+)
 from app.modules.proposal.models import ProposalStatus
 from app.shared.security.auth_dependencies import get_current_user, require_permission
 from app.modules.authentication.models import User
@@ -26,7 +29,7 @@ async def create_proposal(
     current_user: User = Depends(require_permission(Permission.PROPOSAL_GENERATE)),
 ):
     service = ProposalService(db)
-    return await service.create(current_user.organization_id, current_user.id, request)
+    return await service.create(current_user.organization_id, current_user.user_id, request)
 
 
 @router.get("/{proposal_id}", response_model=ProposalResponse)
@@ -82,27 +85,27 @@ async def create_section(
     return await service.create_section(proposal_id, current_user.organization_id, request)
 
 
-@router.put("/{proposal_id}/sections/{section_id}")
+@router.put("/{proposal_id}/sections/{proposal_section_id}")
 async def update_section(
     proposal_id: UUID,
-    section_id: UUID,
+    proposal_section_id: UUID,
     request: ProposalSectionUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.PROPOSAL_UPDATE)),
 ):
     service = ProposalService(db)
-    return await service.update_section(proposal_id, current_user.organization_id, section_id, request)
+    return await service.update_section(proposal_id, current_user.organization_id, proposal_section_id, request)
 
 
-@router.delete("/{proposal_id}/sections/{section_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{proposal_id}/sections/{proposal_section_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_section(
     proposal_id: UUID,
-    section_id: UUID,
+    proposal_section_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.PROPOSAL_UPDATE)),
 ):
     service = ProposalService(db)
-    await service.delete_section(proposal_id, current_user.organization_id, section_id)
+    await service.delete_section(proposal_id, current_user.organization_id, proposal_section_id)
 
 
 @router.post("/{proposal_id}/generate")
@@ -168,3 +171,38 @@ async def delete_proposal(
 ):
     service = ProposalService(db)
     await service.delete(proposal_id, current_user.organization_id)
+
+
+# ComplianceMatrix endpoints
+@router.post("/{proposal_id}/compliance", response_model=ComplianceMatrixResponse, status_code=status.HTTP_201_CREATED)
+async def create_compliance_matrix(
+    proposal_id: UUID,
+    request: ComplianceMatrixCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PROPOSAL_READ)),
+):
+    service = ProposalService(db)
+    return await service.create_compliance_matrix(
+        organization_id=current_user.organization_id,
+        proposal_id=proposal_id,
+        overall_compliance_score=request.overall_compliance_score,
+        mandatory_met=request.mandatory_met,
+        mandatory_total=request.mandatory_total,
+        desirable_met=request.desirable_met,
+        desirable_total=request.desirable_total,
+        requirement_results=request.requirement_results,
+        model_used=request.model_used,
+        prompt_hash=request.prompt_hash,
+        tokens_used=request.tokens_used,
+        generation_latency_ms=request.generation_latency_ms
+    )
+
+
+@router.get("/{proposal_id}/compliance", response_model=ComplianceMatrixResponse)
+async def get_compliance_matrix(
+    proposal_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PROPOSAL_READ)),
+):
+    service = ProposalService(db)
+    return await service.get_compliance_matrix(current_user.organization_id, proposal_id)

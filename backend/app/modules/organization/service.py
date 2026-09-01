@@ -22,7 +22,7 @@ class OrganizationService:
 
         organization = Organization(name=request.name, slug=request.slug)
         organization = await self.repo.create(organization)
-        app_logger.info(f"Organization created", extra={"organization_id": str(organization.id)})
+        app_logger.info(f"Organization created", extra={"organization_id": str(organization.organization_id)})
         return OrganizationResponse.model_validate(organization)
 
     async def get_by_id(self, org_id: UUID) -> OrganizationResponse:

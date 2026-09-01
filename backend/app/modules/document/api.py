@@ -6,7 +6,8 @@ from app.shared.database.session import get_db
 from app.modules.document.service import DocumentService
 from app.modules.document.schemas import (
     DocumentUploadRequest, DocumentResponse, DocumentListResponse,
-    DocumentStatusUpdate, DocumentStatusResponse, DocumentSearchRequest, DocumentSearchResult
+    DocumentStatusUpdate, DocumentStatusResponse, DocumentSearchRequest, DocumentSearchResult,
+    DocumentProgressResponse
 )
 from app.modules.document.models import DocumentStatus, DocumentType
 from app.shared.security.auth_dependencies import get_current_user, require_permission
@@ -62,6 +63,44 @@ async def get_document_status(
 ):
     service = DocumentService(db)
     return await service.get_status(document_id, current_user.organization_id)
+
+
+@router.get("/{document_id}/progress", response_model=DocumentProgressResponse)
+async def get_document_progress(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.DOC_READ)),
+):
+    """Get real-time processing progress for a document."""
+    from app.modules.document.repository import DocumentProcessingRepository
+    from app.modules.document.models import Document
+
+    # Verify document exists and belongs to user's org
+    doc = await db.get(Document, document_id)
+    if not doc or doc.organization_id != current_user.organization_id or doc.is_deleted:
+        raise ValidationException("Document not found")
+
+    # Get processing record
+    proc_repo = DocumentProcessingRepository(db)
+    processing = await proc_repo.get_by_document_id(document_id)
+
+    if not processing:
+        return DocumentProgressResponse(
+            document_id=str(document_id),
+            stage="pending",
+            status="pending",
+            progress=0
+        )
+
+    return DocumentProgressResponse(
+        document_id=str(document_id),
+        stage=processing.stage,
+        status=processing.status,
+        progress=processing.progress,
+        error_message=processing.error_message,
+        started_at=processing.started_at,
+        completed_at=processing.completed_at
+    )
 
 
 @router.post("/{document_id}/reprocess", response_model=DocumentResponse)

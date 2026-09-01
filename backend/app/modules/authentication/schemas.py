@@ -16,7 +16,7 @@ class LoginResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    user_id: str
     email: str
     full_name: str
     role: UserRole

@@ -16,7 +16,7 @@ class ChatSessionUpdate(BaseModel):
 
 
 class ChatSessionResponse(BaseModel):
-    id: str
+    chat_session_id: str
     title: Optional[str]
     status: ChatSessionStatus
     organization_id: str
@@ -34,7 +34,7 @@ class ChatMessageCreate(BaseModel):
 
 
 class ChatMessageResponse(BaseModel):
-    id: str
+    chat_message_id: str
     role: str
     content: str
     tokens_used: Optional[int]
@@ -53,7 +53,6 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     message: ChatMessageResponse
-    answer: str
     sources: List[Dict[str, Any]] = []
     confidence: float
 

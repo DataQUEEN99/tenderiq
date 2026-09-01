@@ -14,6 +14,15 @@ from app.shared.exceptions.custom_exceptions import ValidationException, Resourc
 from app.shared.logging.logger import app_logger
 from app.config import get_settings
 
+# Celery tasks (imported lazily to avoid circular imports)
+def get_process_document_task():
+    from app.tasks.document_tasks import process_document
+    return process_document
+
+def get_reprocess_document_task():
+    from app.tasks.document_tasks import reprocess_document
+    return reprocess_document
+
 
 class DocumentService:
     def __init__(self, session: AsyncSession):
@@ -63,32 +72,29 @@ class DocumentService:
 
         document = await self.repo.create(document)
 
-        # Trigger AI Processing Pipeline
+        # Set initial status to PROCESSING
+        document = await self.repo.update_status(
+            document_id=document.id,
+            status=DocumentStatus.PROCESSING
+        )
+
+        # Enqueue background processing task
         try:
-            full_path = self.storage.get_full_path(storage_path)
-            from app.ai.facade import AIFacade
-            facade = AIFacade()
-            process_res = await facade.process_document(
-                organization_id=organization_id,
-                document_id=document.id,
-                file_path=full_path,
-                mime_type=mime_type
-            )
-            document = await self.repo.update_status(
-                document_id=document.id,
-                status=DocumentStatus.PROCESSED,
-                chunk_count=process_res.get("chunk_count", 0),
-                vector_collection=process_res.get("collection")
-            )
+            process_task = get_process_document_task()
+            process_task.delay(str(document.id), str(organization_id))
+            app_logger.info(f"Document processing task enqueued", extra={
+                "document_id": str(document.id),
+                "organization_id": str(organization_id)
+            })
         except Exception as e:
-            app_logger.error(f"Document processing failed during upload", extra={"document_id": str(document.id), "error": str(e)})
+            app_logger.error(f"Failed to enqueue processing task", extra={"document_id": str(document.id), "error": str(e)})
             document = await self.repo.update_status(
                 document_id=document.id,
                 status=DocumentStatus.FAILED,
-                error_message=str(e)
+                error_message=f"Failed to queue processing: {str(e)}"
             )
 
-        app_logger.info(f"Document uploaded and processed", extra={
+        app_logger.info(f"Document uploaded, processing queued", extra={
             "document_id": str(document.id),
             "organization_id": str(organization_id),
             "filename": original_filename,
@@ -145,30 +151,20 @@ class DocumentService:
         # Set status to PROCESSING
         document = await self.repo.update_status(document_id, DocumentStatus.PROCESSING)
 
-        storage_path = f"organizations/{organization_id}/documents/{document.filename}"
-        full_path = self.storage.get_full_path(storage_path)
-
+        # Enqueue background reprocessing task
         try:
-            from app.ai.facade import AIFacade
-            facade = AIFacade()
-            process_res = await facade.process_document(
-                organization_id=organization_id,
-                document_id=document_id,
-                file_path=full_path,
-                mime_type=document.mime_type
-            )
-            document = await self.repo.update_status(
-                document_id=document_id,
-                status=DocumentStatus.PROCESSED,
-                chunk_count=process_res.get("chunk_count", 0),
-                vector_collection=process_res.get("collection")
-            )
+            reprocess_task = get_reprocess_document_task()
+            reprocess_task.delay(str(document_id), str(organization_id))
+            app_logger.info(f"Document reprocessing task enqueued", extra={
+                "document_id": str(document_id),
+                "organization_id": str(organization_id)
+            })
         except Exception as e:
-            app_logger.error(f"Reprocessing failed", extra={"document_id": str(document_id), "error": str(e)})
+            app_logger.error(f"Failed to enqueue reprocessing task", extra={"document_id": str(document_id), "error": str(e)})
             document = await self.repo.update_status(
                 document_id=document_id,
                 status=DocumentStatus.FAILED,
-                error_message=str(e)
+                error_message=f"Failed to queue reprocessing: {str(e)}"
             )
 
         return DocumentResponse.model_validate(document)

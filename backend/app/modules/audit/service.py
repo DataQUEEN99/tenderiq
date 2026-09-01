@@ -38,7 +38,7 @@ class AuditService:
         app_logger.info(
             f"Audit log created",
             extra={
-                "audit_log_id": str(audit_log.id),
+                "audit_log_id": str(audit_log.audit_log_id),
                 "action": action.value,
                 "resource_type": resource_type,
                 "organization_id": str(organization_id),
@@ -46,8 +46,8 @@ class AuditService:
         )
         return AuditLogResponse.model_validate(audit_log)
 
-    async def get_by_id(self, log_id: UUID) -> AuditLogResponse:
-        audit_log = await self.repo.get_by_id(log_id)
+    async def get_by_id(self, log_id: UUID, organization_id: UUID) -> AuditLogResponse:
+        audit_log = await self.repo.get_by_id(log_id, organization_id)
         if not audit_log:
             raise ResourceNotFoundException("Audit log not found")
         return AuditLogResponse.model_validate(audit_log)
@@ -65,6 +65,7 @@ class AuditService:
         date_to: Optional[datetime] = None,
     ) -> AuditLogListResponse:
         items, total = await self.repo.list(
+            organization_id,
             page=page,
             page_size=page_size,
             action=action,
@@ -73,7 +74,6 @@ class AuditService:
             user_id=user_id,
             date_from=date_from,
             date_to=date_to,
-            organization_id=organization_id,
         )
         return AuditLogListResponse(
             items=[AuditLogResponse.model_validate(item) for item in items],

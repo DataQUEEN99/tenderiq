@@ -37,7 +37,7 @@ async def change_password(
     db: AsyncSession = Depends(get_db),
 ):
     service = AuthService(db)
-    await service.change_password(str(current_user.id), request)
+    await service.change_password(str(current_user.user_id), request)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

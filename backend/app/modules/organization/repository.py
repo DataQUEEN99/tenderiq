@@ -12,7 +12,7 @@ class OrganizationRepository:
         self.session = session
 
     async def get_by_id(self, org_id: UUID) -> Optional[Organization]:
-        result = await self.session.execute(select(Organization).where(Organization.id == org_id))
+        result = await self.session.execute(select(Organization).where(Organization.organization_id == org_id))
         return result.scalar_one_or_none()
 
     async def get_by_slug(self, slug: str) -> Optional[Organization]:
@@ -40,7 +40,7 @@ class OrganizationRepository:
         items = result.scalars().all()
 
         count_result = await self.session.execute(
-            select(func.count(Organization.id)).where(Organization.is_deleted == False)
+            select(func.count(Organization.organization_id)).where(Organization.is_deleted == False)
         )
         total = count_result.scalar_one()
 

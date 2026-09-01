@@ -69,6 +69,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tenderiq}:${POSTGRES_PASSWORD:-tenderiq_secure_password}@postgres:5432/${POSTGRES_DB:-tenderiq}
       - REDIS_URL=redis://redis:6379/0
+      - CHROMA_MODE=http
       - CHROMA_HOST=chroma
       - CHROMA_PORT=8000
       - CHROMA_COLLECTION_NAME=${CHROMA_COLLECTION_NAME:-tenderiq_documents}
@@ -92,6 +93,92 @@ services:
       - backend_data:/app/data
     ports:
       - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    networks:
+      - tenderiq_network
+    restart: unless-stopped
+
+  # Celery Worker for Document Processing
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tenderiq_worker
+    command: python worker.py
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tenderiq}:${POSTGRES_PASSWORD:-tenderiq_secure_password}@postgres:5432/${POSTGRES_DB:-tenderiq}
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_MODE=http
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - CHROMA_COLLECTION_NAME=${CHROMA_COLLECTION_NAME:-tenderiq_documents}
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production}
+      - JWT_SECRET=${JWT_SECRET:-${SECRET_KEY:-your-super-secret-key-change-in-production}}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - STORAGE_ROOT=/app/data
+      - UPLOAD_DIR=/app/data/uploads
+      - VECTOR_STORE_DIR=/app/data/vectorstore
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-${GOOGLE_API_KEY:-}}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
+      - USE_OLLAMA=${USE_OLLAMA:-false}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      - ENVIRONMENT=production
+    volumes:
+      - backend_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    networks:
+      - tenderiq_network
+    restart: unless-stopped
+
+  # Celery Worker for Document Processing
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tenderiq_worker
+    command: python worker.py
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tenderiq}:${POSTGRES_PASSWORD:-tenderiq_secure_password}@postgres:5432/${POSTGRES_DB:-tenderiq}
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_MODE=http
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - CHROMA_COLLECTION_NAME=${CHROMA_COLLECTION_NAME:-tenderiq_documents}
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production}
+      - JWT_SECRET=${JWT_SECRET:-${SECRET_KEY:-your-super-secret-key-change-in-production}}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - STORAGE_ROOT=/app/data
+      - UPLOAD_DIR=/app/data/uploads
+      - VECTOR_STORE_DIR=/app/data/vectorstore
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-${GOOGLE_API_KEY:-}}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
+      - USE_OLLAMA=${USE_OLLAMA:-false}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      - ENVIRONMENT=production
+    volumes:
+      - backend_data:/app/data
     depends_on:
       postgres:
         condition: service_healthy

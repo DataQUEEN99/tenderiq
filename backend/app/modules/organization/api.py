@@ -40,39 +40,39 @@ async def get_current_organization(
     return await service.get_by_id(current_user.organization_id)
 
 
-@router.get("/{org_id}", response_model=OrganizationResponse)
+@router.get("/{organization_id}", response_model=OrganizationResponse)
 async def get_organization(
-    org_id: UUID,
+    organization_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_READ)),
 ):
     _verify_tenant_access(current_user, org_id)
     service = OrganizationService(db)
-    return await service.get_by_id(org_id)
+    return await service.get_by_id(organization_id)
 
 
-@router.put("/{org_id}", response_model=OrganizationResponse)
+@router.put("/{organization_id}", response_model=OrganizationResponse)
 async def update_organization(
-    org_id: UUID,
+    organization_id: UUID,
     request: OrganizationUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_UPDATE)),
 ):
     _verify_tenant_access(current_user, org_id)
     service = OrganizationService(db)
-    return await service.update(org_id, request)
+    return await service.update(organization_id, request)
 
 
-@router.patch("/{org_id}/status", response_model=OrganizationResponse)
+@router.patch("/{organization_id}/status", response_model=OrganizationResponse)
 async def update_organization_status(
-    org_id: UUID,
+    organization_id: UUID,
     request: OrganizationStatusUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_UPDATE)),
 ):
     _verify_tenant_access(current_user, org_id)
     service = OrganizationService(db)
-    return await service.update_status(org_id, request)
+    return await service.update_status(organization_id, request)
 
 
 @router.get("", response_model=OrganizationListResponse)
@@ -87,12 +87,12 @@ async def list_organizations(
     return OrganizationListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
-@router.delete("/{org_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_organization(
-    org_id: UUID,
+    organization_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_DELETE)),
 ):
     _verify_tenant_access(current_user, org_id)
     service = OrganizationService(db)
-    await service.soft_delete(org_id)
+    await service.soft_delete(organization_id)

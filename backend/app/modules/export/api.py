@@ -23,7 +23,7 @@ async def create_export(
     current_user: User = Depends(require_permission(Permission.EXPORT_PDF)),
 ):
     service = ExportService(db)
-    return await service.create_export(current_user.organization_id, current_user.id, request)
+    return await service.create_export(current_user.organization_id, current_user.user_id, request)
 
 
 @router.get("/{export_id}", response_model=ExportResponse)

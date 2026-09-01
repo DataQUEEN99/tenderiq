@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import UUID
 from typing import List, Tuple, Optional
 from app.modules.chat.repository import ChatRepository
-from app.modules.chat.models import ChatSession, ChatMessage, ChatContext, ChatSessionStatus
+from app.modules.chat.models import ChatSession, ChatMessage, ChatSessionStatus
 from app.modules.chat.schemas import (
     ChatSessionCreate, ChatSessionUpdate, ChatSessionResponse,
     ChatSessionDetailResponse, ChatMessageCreate, ChatMessageResponse,
@@ -26,28 +26,18 @@ class ChatService:
         )
         session = await self.repo.create(session)
 
-        if request.context_type and request.reference_id:
-            context = ChatContext(
-                session_id=session.id,
-                context_type=request.context_type,
-                reference_id=request.reference_id,
-                content=f"Context: {request.context_type}",
-                metadata=f'{{"reference_id": "{request.reference_id}"}}',
-            )
-            await self.repo.add_context(context)
-
-        app_logger.info(f"Chat session created", extra={"session_id": str(session.id)})
+        app_logger.info(f"Chat session created", extra={"session_id": str(session.chat_session_id)})
         return ChatSessionResponse.model_validate(session)
 
     async def get_session(self, session_id: UUID, organization_id: UUID) -> ChatSessionResponse:
-        session = await self.repo.get_by_id(session_id)
-        if not session or session.organization_id != organization_id or session.is_deleted:
+        session = await self.repo.get_by_id(session_id, organization_id)
+        if not session or session.is_deleted:
             raise ResourceNotFoundException("Chat session not found")
         return ChatSessionResponse.model_validate(session)
 
     async def get_session_detail(self, session_id: UUID, organization_id: UUID) -> ChatSessionDetailResponse:
-        session = await self.repo.get_by_id_with_messages(session_id)
-        if not session or session.organization_id != organization_id or session.is_deleted:
+        session = await self.repo.get_by_id_with_messages(session_id, organization_id)
+        if not session or session.is_deleted:
             raise ResourceNotFoundException("Chat session not found")
 
         response = ChatSessionDetailResponse.model_validate(session)
@@ -55,8 +45,8 @@ class ChatService:
         return response
 
     async def update_session(self, session_id: UUID, organization_id: UUID, request: ChatSessionUpdate) -> ChatSessionResponse:
-        session = await self.repo.get_by_id(session_id)
-        if not session or session.organization_id != organization_id or session.is_deleted:
+        session = await self.repo.get_by_id(session_id, organization_id)
+        if not session or session.is_deleted:
             raise ResourceNotFoundException("Chat session not found")
 
         if request.title is not None:
@@ -68,8 +58,8 @@ class ChatService:
         return ChatSessionResponse.model_validate(session)
 
     async def send_message(self, session_id: UUID, organization_id: UUID, request: ChatRequest, current_user_id: UUID) -> ChatResponse:
-        session = await self.repo.get_by_id(session_id)
-        if not session or session.organization_id != organization_id or session.is_deleted:
+        session = await self.repo.get_by_id(session_id, organization_id)
+        if not session or session.is_deleted:
             raise ResourceNotFoundException("Chat session not found")
 
         user_message = ChatMessage(
@@ -104,7 +94,6 @@ class ChatService:
 
         return ChatResponse(
             message=ChatMessageResponse.model_validate(assistant_message),
-            answer=ai_result["answer"],
             sources=ai_result.get("sources", []),
             confidence=ai_result.get("confidence", 0.0)
         )
@@ -114,9 +103,9 @@ class ChatService:
         return [ChatSessionResponse.model_validate(item) for item in items], total
 
     async def delete_session(self, session_id: UUID, organization_id: UUID) -> None:
-        session = await self.repo.get_by_id(session_id)
-        if not session or session.organization_id != organization_id:
+        session = await self.repo.get_by_id(session_id, organization_id)
+        if not session:
             raise ResourceNotFoundException("Chat session not found")
 
-        await self.repo.soft_delete(session_id)
+        await self.repo.soft_delete(session_id, organization_id)
         app_logger.info(f"Chat session deleted", extra={"session_id": str(session_id)})

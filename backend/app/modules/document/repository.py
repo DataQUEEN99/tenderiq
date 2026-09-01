@@ -2,18 +2,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, List, Tuple
-from app.modules.document.models import Document, DocumentStatus, DocumentType
+from app.modules.document.models import Document, DocumentStatus, DocumentType, DocumentContent, DocumentProcessing
 from app.shared.database.base import BaseModel
 from app.shared.utils.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from app.shared.database.tenant_repository import TenantRepository
 
 
-class DocumentRepository:
+class DocumentRepository(TenantRepository[Document]):
     def __init__(self, session: AsyncSession):
-        self.session = session
+        super().__init__(session, Document, primary_key_attr='document_id')
 
-    async def get_by_id(self, doc_id: UUID) -> Optional[Document]:
-        result = await self.session.execute(select(Document).where(Document.id == doc_id))
-        return result.scalar_one_or_none()
+    # Override get_by_id to require organization_id
+    async def get_by_id(self, doc_id: UUID, organization_id: UUID) -> Optional[Document]:
+        return await super().get_by_id(doc_id, organization_id)
 
     async def get_by_hash(self, organization_id: UUID, file_hash: str) -> Optional[Document]:
         result = await self.session.execute(
@@ -27,15 +28,14 @@ class DocumentRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create(self, document: Document) -> Document:
-        self.session.add(document)
-        await self.session.flush()
-        await self.session.refresh(document)
-        return document
+    async def get_sections(self, proposal_id: UUID) -> List:
+        # Placeholder - would need ProposalSection model imported
+        return []
 
-    async def update_status(self, doc_id: UUID, status: DocumentStatus, error_message: str = None,
-                            chunk_count: int = None, vector_collection: str = None) -> Optional[Document]:
-        document = await self.get_by_id(doc_id)
+    async def update_status(self, doc_id: UUID, organization_id: UUID, status: DocumentStatus,
+                            error_message: str = None, chunk_count: int = None,
+                            vector_collection: str = None) -> Optional[Document]:
+        document = await self.get_by_id(doc_id, organization_id)
         if not document:
             return None
 
@@ -51,44 +51,117 @@ class DocumentRepository:
         await self.session.refresh(document)
         return document
 
+    # Override list to use the base class implementation with filters
     async def list(self, organization_id: UUID, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE,
                    document_type: DocumentType = None, status: DocumentStatus = None) -> Tuple[List[Document], int]:
-        if page_size > MAX_PAGE_SIZE:
-            page_size = MAX_PAGE_SIZE
-        offset = (page - 1) * page_size
-
-        query = select(Document).where(
-            and_(Document.organization_id == organization_id, Document.is_deleted == False)
-        )
-
+        filters = {}
         if document_type:
-            query = query.where(Document.document_type == document_type)
+            filters['document_type'] = document_type
         if status:
-            query = query.where(Document.status == status)
+            filters['status'] = status
+        return await super().list(organization_id, page, page_size, **filters)
 
-        query = query.order_by(Document.created_at.desc()).offset(offset).limit(page_size)
 
-        result = await self.session.execute(query)
-        items = result.scalars().all()
+class DocumentContentRepository(TenantRepository[DocumentContent]):
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, DocumentContent, primary_key_attr='document_content_id')
 
-        count_query = select(func.count(Document.id)).where(
-            and_(Document.organization_id == organization_id, Document.is_deleted == False)
+    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentContent]:
+        result = await self.session.execute(
+            select(DocumentContent).where(DocumentContent.document_id == document_id)
         )
-        if document_type:
-            count_query = count_query.where(Document.document_type == document_type)
-        if status:
-            count_query = count_query.where(Document.status == status)
+        return result.scalar_one_or_none()
 
-        count_result = await self.session.execute(count_query)
-        total = count_result.scalar_one()
+    async def create(self, content: DocumentContent) -> DocumentContent:
+        return await super().create(content)
 
-        return list(items), total
-
-    async def soft_delete(self, doc_id: UUID) -> bool:
-        document = await self.get_by_id(doc_id)
-        if not document:
-            return False
-        document.is_deleted = True
-        document.status = DocumentStatus.DELETED
+    async def update(self, content: DocumentContent) -> DocumentContent:
         await self.session.flush()
-        return True
+        await self.session.refresh(content)
+        return content
+
+    async def upsert(self, document_id: UUID, extracted_text: str, page_count: int = None,
+                     character_count: int = None, extraction_method: str = None):
+        existing = await self.get_by_document_id(document_id)
+        if existing:
+            existing.extracted_text = extracted_text
+            existing.extraction_status = "completed"
+            if page_count is not None:
+                existing.page_count = page_count
+            if character_count is not None:
+                existing.character_count = character_count
+            if extraction_method:
+                existing.extraction_method = extraction_method
+            return await self.update(existing)
+
+        content = DocumentContent(
+            document_id=document_id,
+            extracted_text=extracted_text,
+            extraction_method=extraction_method or "native",
+            extraction_status="completed",
+            page_count=page_count,
+            character_count=character_count,
+        )
+        return await self.create(content)
+
+
+class DocumentProcessingRepository(TenantRepository[DocumentProcessing]):
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, DocumentProcessing, primary_key_attr='document_processing_id')
+
+    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentProcessing]:
+        result = await self.session.execute(
+            select(DocumentProcessing).where(DocumentProcessing.document_id == document_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, processing: DocumentProcessing) -> DocumentProcessing:
+        return await super().create(processing)
+
+    async def update(self, processing: DocumentProcessing) -> DocumentProcessing:
+        await self.session.flush()
+        await self.session.refresh(processing)
+        return processing
+
+    async def upsert(self, document_id: UUID, status: str, error_message: str = None,
+                     started_at=None, completed_at=None, metadata: dict = None):
+        existing = await self.get_by_document_id(document_id)
+        if existing:
+            existing.status = status
+            if error_message:
+                existing.error_message = error_message
+            if started_at:
+                existing.started_at = started_at
+            if completed_at:
+                existing.completed_at = completed_at
+            if metadata:
+                existing.processing_metadata = metadata
+            # Update stage based on status
+            if status == "processing":
+                existing.stage = "extraction"
+            elif status == "processed":
+                existing.stage = "completed"
+            elif status == "failed":
+                existing.stage = "failed"
+            return await self.update(existing)
+
+        # Determine stage from status
+        if status == "processing":
+            stage = "extraction"
+        elif status == "processed":
+            stage = "completed"
+        elif status == "failed":
+            stage = "failed"
+        else:
+            stage = "pending"
+
+        processing = DocumentProcessing(
+            document_id=document_id,
+            stage=stage,
+            status=status,
+            error_message=error_message,
+            started_at=started_at,
+            completed_at=completed_at,
+            processing_metadata=metadata or {},
+        )
+        return await self.create(processing)

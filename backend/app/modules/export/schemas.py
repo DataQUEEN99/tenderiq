@@ -10,7 +10,7 @@ class ExportCreate(BaseModel):
 
 
 class ExportResponse(BaseModel):
-    id: str
+    export_id: str
     export_format: ExportFormat
     status: ExportStatus
     file_path: Optional[str]

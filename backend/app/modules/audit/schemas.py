@@ -6,7 +6,7 @@ from app.modules.audit.models import AuditAction
 
 
 class AuditLogResponse(BaseModel):
-    id: str
+    audit_log_id: str
     action: AuditAction
     resource_type: str
     resource_id: Optional[UUID]
