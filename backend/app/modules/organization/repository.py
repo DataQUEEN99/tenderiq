@@ -29,6 +29,12 @@ class OrganizationRepository:
         await self.session.refresh(organization)
         return organization
 
+    async def update(self, organization: Organization) -> Organization:
+        """Update organization entity - flush and refresh"""
+        await self.session.flush()
+        await self.session.refresh(organization)
+        return organization
+
     async def list(self, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE) -> tuple[List[Organization], int]:
         if page_size > MAX_PAGE_SIZE:
             page_size = MAX_PAGE_SIZE

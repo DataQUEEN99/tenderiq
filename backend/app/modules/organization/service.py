@@ -48,8 +48,7 @@ class OrganizationService:
                 raise ValidationException("Organization name already exists")
             organization.name = request.name
 
-        await self.repo.session.flush()
-        await self.repo.session.refresh(organization)
+        organization = await self.repo.update(organization)
         return OrganizationResponse.model_validate(organization)
 
     async def update_status(self, org_id: UUID, request: OrganizationStatusUpdate) -> OrganizationResponse:
@@ -58,8 +57,7 @@ class OrganizationService:
             raise ResourceNotFoundException("Organization not found")
 
         organization.status = request.status
-        await self.repo.session.flush()
-        await self.repo.session.refresh(organization)
+        organization = await self.repo.update(organization)
         app_logger.info(f"Organization status updated", extra={"organization_id": str(org_id), "status": request.status.value})
         return OrganizationResponse.model_validate(organization)
 
@@ -73,5 +71,5 @@ class OrganizationService:
             raise ResourceNotFoundException("Organization not found")
         organization.is_deleted = True
         organization.status = OrganizationStatus.DISABLED
-        await self.repo.session.flush()
+        await self.repo.update(organization)
         app_logger.info(f"Organization soft deleted", extra={"organization_id": str(org_id)})

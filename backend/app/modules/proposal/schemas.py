@@ -41,6 +41,9 @@ class ProposalSectionResponse(BaseModel):
     section_type: Optional[str]
     is_generated: bool
     generation_prompt: Optional[str]
+    version: int
+    is_current: bool
+    generated_at: datetime
     created_at: datetime
     updated_at: datetime
 

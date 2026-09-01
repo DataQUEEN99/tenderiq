@@ -13,6 +13,7 @@ from app.ai.retrieval.retriever import Retriever
 from app.ai.prompts import get_prompt
 from app.config import get_settings
 from app.modules.tender.models import EligibilityAnalysis
+from datetime import datetime, timezone
 
 
 class EligibilityAnalyzer:
@@ -74,22 +75,25 @@ class EligibilityAnalyzer:
             version_res = await db.execute(version_stmt)
             next_version = version_res.scalar_one() + 1
 
+            # Determine overall eligibility from decision
+            decision = parsed_result.get("decision", "UNKNOWN")
+            overall_eligible = decision in ("ELIGIBLE", "PASS", "YES", "TRUE")
+
             record = EligibilityAnalysis(
                 tender_id=tender_id,
                 organization_id=organization_id,
                 company_profile_id=company_profile_id,
                 version=next_version,
-                decision=parsed_result.get("decision", "UNKNOWN"),
-                confidence=float(parsed_result.get("confidence", 0.0) or 0.0),
-                criteria_analysis=parsed_result.get("criteria_analysis", []),
+                overall_eligible=overall_eligible,
+                eligibility_score=parsed_result.get("eligibility_score"),
+                criteria_results=parsed_result.get("criteria_analysis", []),
                 missing_requirements=parsed_result.get("missing_requirements", []),
-                recommendations=parsed_result.get("recommendations", []),
-                reasoning=parsed_result.get("reasoning", ""),
-                created_by=user_id,
-                model=model_name,
+                model_used=model_name,
                 prompt_hash=prompt_hash,
-                tokens=tokens,
-                latency=latency,
+                tokens_used=tokens,
+                generation_latency_ms=int(latency * 1000),
+                is_current=True,
+                generated_at=datetime.now(timezone.utc),
             )
             db.add(record)
             await db.flush()
@@ -118,7 +122,7 @@ class EligibilityAnalyzer:
                     pass
             return {
                 "decision": "UNKNOWN",
-                "confidence": 0.0,
+                "eligibility_score": 0,
                 "criteria_analysis": [],
                 "missing_requirements": [],
                 "recommendations": ["Failed to parse eligibility assessment"],

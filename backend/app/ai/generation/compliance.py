@@ -13,6 +13,7 @@ from app.ai.retrieval.retriever import Retriever
 from app.ai.prompts import get_prompt
 from app.config import get_settings
 from app.modules.proposal.models import ComplianceMatrix
+from datetime import datetime, timezone
 
 
 class ComplianceChecker:
@@ -72,11 +73,14 @@ class ComplianceChecker:
         not_addressed = sum(1 for m in matrix if m.get("status") == "NOT ADDRESSED")
 
         mandatory = [m for m in matrix if m.get("category") == "Mandatory"]
+        desirable = [m for m in matrix if m.get("category") == "Desirable"]
         mandatory_total = len(mandatory)
-        mandatory_compliant = sum(1 for m in mandatory if m.get("status") == "COMPLIANT")
+        desirable_total = len(desirable)
+        mandatory_met = sum(1 for m in mandatory if m.get("status") == "COMPLIANT")
+        desirable_met = sum(1 for m in desirable if m.get("status") == "COMPLIANT")
 
         overall_score = round((compliant + 0.5 * partial) / total * 100, 1) if total > 0 else 0.0
-        mandatory_score = round(mandatory_compliant / mandatory_total * 100, 1) if mandatory_total > 0 else 0.0
+        mandatory_score = round(mandatory_met / mandatory_total * 100, 1) if mandatory_total > 0 else 0.0
 
         summary_data = {
             "total_requirements": total,
@@ -86,8 +90,10 @@ class ComplianceChecker:
             "not_addressed": not_addressed,
             "overall_score": overall_score,
             "mandatory_total": mandatory_total,
-            "mandatory_compliant": mandatory_compliant,
-            "mandatory_score": mandatory_score
+            "mandatory_compliant": mandatory_met,
+            "mandatory_score": mandatory_score,
+            "desirable_total": desirable_total,
+            "desirable_met": desirable_met,
         }
 
         gaps = [
@@ -137,16 +143,18 @@ class ComplianceChecker:
                 proposal_id=proposal_id,
                 organization_id=organization_id,
                 version=next_version,
-                overall_score=overall_score,
-                summary=summary_data,
-                matrix=matrix,
-                gaps=gaps,
-                recommendations=recommendations,
-                created_by=user_id,
-                model=model_name,
+                overall_compliance_score=int(overall_score),
+                mandatory_met=mandatory_met,
+                mandatory_total=mandatory_total,
+                desirable_met=desirable_met,
+                desirable_total=desirable_total,
+                requirement_results=matrix,
+                model_used=model_name,
                 prompt_hash=prompt_hash,
-                tokens=tokens,
-                latency=latency,
+                tokens_used=tokens,
+                generation_latency_ms=int(latency * 1000),
+                is_current=True,
+                generated_at=datetime.now(timezone.utc),
             )
             db.add(record)
             await db.flush()

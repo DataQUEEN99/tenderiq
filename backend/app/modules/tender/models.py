@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Enum as SQLEnum, Integer, Boolean, Float, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Enum as SQLEnum, Integer, Boolean, Index, ARRAY, func
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import enum
 from app.shared.database.base import BaseModel
+import uuid
 
 
 class TenderStatus(str, enum.Enum):
@@ -18,6 +19,9 @@ class TenderStatus(str, enum.Enum):
 class Tender(BaseModel):
     __tablename__ = "tenders"
 
+    # Explicit PK
+    tender_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
     title = Column(String(500), nullable=False)
     reference_number = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
@@ -28,8 +32,8 @@ class Tender(BaseModel):
     contract_duration = Column(String(100), nullable=True)
     status = Column(SQLEnum(TenderStatus), nullable=False, default=TenderStatus.DRAFT, index=True)
 
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
 
     organization = relationship("Organization", back_populates="tenders")
     creator = relationship("User", back_populates="tenders")
@@ -43,8 +47,11 @@ class Tender(BaseModel):
 class TenderDocument(BaseModel):
     __tablename__ = "tender_documents"
 
-    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.id", ondelete="CASCADE"), nullable=False, index=True)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Explicit PK
+    tender_document_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.tender_id", ondelete="CASCADE"), nullable=False, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.document_id", ondelete="CASCADE"), nullable=False, index=True)
 
     tender = relationship("Tender", back_populates="documents")
     document = relationship("Document", back_populates="tender")
@@ -52,49 +59,57 @@ class TenderDocument(BaseModel):
 
 class TenderSummary(BaseModel):
     __tablename__ = "tender_summaries"
+    __table_args__ = (
+        Index("ix_tender_summaries_tender_id", "tender_id"),
+        Index("ix_tender_summaries_organization_id", "organization_id"),
+    )
 
-    summary_type = Column(String(50), nullable=False, default="executive")
-    version = Column(Integer, default=1, nullable=False)
-    content = Column(Text, nullable=False)
-    structured_data = Column(JSON, nullable=True)
+    # Explicit PK
+    tender_summary_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Generation metadata
-    model = Column(String(100), nullable=True)
-    prompt_hash = Column(String(64), nullable=True)
-    tokens = Column(Integer, nullable=True)
-    latency = Column(Float, nullable=True)
-
-    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.id", ondelete="CASCADE"), nullable=False, index=True)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.tender_id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    summary_text = Column(Text, nullable=False)
+    summary_type = Column(String(30), nullable=False)
+    model_used = Column(String(100), nullable=False)
+    prompt_hash = Column(String(64), nullable=False)
+    tokens_used = Column(Integer, nullable=True)
+    generation_latency_ms = Column(Integer, nullable=True)
+    source_document_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    is_current = Column(Boolean, nullable=False, default=True)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     tender = relationship("Tender", back_populates="summaries")
-    organization = relationship("Organization")
-    creator = relationship("User")
+    organization = relationship("Organization", back_populates="tender_summaries")
 
 
 class EligibilityAnalysis(BaseModel):
     __tablename__ = "eligibility_analyses"
+    __table_args__ = (
+        Index("ix_eligibility_analyses_tender_id", "tender_id"),
+        Index("ix_eligibility_analyses_organization_id", "organization_id"),
+        Index("ix_eligibility_analyses_company_profile_id", "company_profile_id"),
+    )
 
-    version = Column(Integer, default=1, nullable=False)
-    decision = Column(String(50), nullable=False, default="UNKNOWN")
-    confidence = Column(Float, nullable=True)
-    criteria_analysis = Column(JSON, nullable=True)
-    missing_requirements = Column(JSON, nullable=True)
-    recommendations = Column(JSON, nullable=True)
-    reasoning = Column(Text, nullable=True)
+    # Explicit PK
+    eligibility_analysis_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Generation metadata
-    model = Column(String(100), nullable=True)
-    prompt_hash = Column(String(64), nullable=True)
-    tokens = Column(Integer, nullable=True)
-    latency = Column(Float, nullable=True)
-
-    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.id", ondelete="CASCADE"), nullable=False, index=True)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
-    company_profile_id = Column(UUID(as_uuid=True), ForeignKey("company_profiles.id", ondelete="SET NULL"), nullable=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.tender_id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False)
+    company_profile_id = Column(UUID(as_uuid=True), ForeignKey("company_profiles.company_profile_id", ondelete="CASCADE"), nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    overall_eligible = Column(Boolean, nullable=False)
+    eligibility_score = Column(Integer, nullable=True)
+    criteria_results = Column(JSONB, nullable=False)
+    missing_requirements = Column(JSONB, default=[], nullable=False)
+    model_used = Column(String(100), nullable=False)
+    prompt_hash = Column(String(64), nullable=False)
+    tokens_used = Column(Integer, nullable=True)
+    generation_latency_ms = Column(Integer, nullable=True)
+    is_current = Column(Boolean, nullable=False, default=True)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     tender = relationship("Tender", back_populates="eligibility_analyses")
-    organization = relationship("Organization")
-    creator = relationship("User")
+    organization = relationship("Organization", back_populates="eligibility_analyses")
+    company_profile = relationship("CompanyProfile")

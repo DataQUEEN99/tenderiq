@@ -18,7 +18,7 @@ class ExportRepository(TenantRepository[Export]):
         from app.modules.proposal.models import Proposal
         result = await self.session.execute(
             select(Proposal).where(
-                and_(Proposal.id == proposal_id, Proposal.organization_id == organization_id, Proposal.is_deleted == False)
+                and_(Proposal.proposal_id == proposal_id, Proposal.organization_id == organization_id, Proposal.is_deleted == False)
             )
         )
         return result.scalar_one_or_none()

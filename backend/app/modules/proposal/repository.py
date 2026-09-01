@@ -60,7 +60,7 @@ class ProposalRepository(TenantRepository[Proposal]):
     async def get_section_by_id(self, section_id: UUID, proposal_id: UUID) -> Optional[ProposalSection]:
         result = await self.session.execute(
             select(ProposalSection).where(
-                and_(ProposalSection.id == section_id, ProposalSection.proposal_id == proposal_id, ProposalSection.is_deleted == False)
+                and_(ProposalSection.proposal_section_id == section_id, ProposalSection.proposal_id == proposal_id, ProposalSection.is_deleted == False)
             )
         )
         return result.scalar_one_or_none()

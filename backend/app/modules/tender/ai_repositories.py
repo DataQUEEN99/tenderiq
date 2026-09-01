@@ -3,6 +3,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, List, Tuple
 from app.modules.tender.models import TenderSummary, EligibilityAnalysis, ComplianceMatrix
+from app.modules.document.models import DocumentContent, DocumentProcessing, DocumentStatus
 from app.shared.database.base import BaseModel
 from app.shared.utils.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 
@@ -35,30 +36,27 @@ class TenderSummaryRepository:
         return summary
 
     async def upsert(self, organization_id: UUID, tender_id: UUID, summary_type: str,
-                     content: str, generation_model: str = None, generation_prompt: str = None,
+                     summary_text: str, generation_model: str = None, generation_prompt: str = None,
                      metadata: dict = None) -> TenderSummary:
         existing = await self.get_by_tender_id(tender_id)
         if existing:
             existing.summary_type = summary_type
-            existing.content = content
+            existing.summary_text = summary_text
             existing.version += 1
             if generation_model:
-                existing.generation_model = generation_model
+                existing.model_used = generation_model
             if generation_prompt:
                 existing.generation_prompt = generation_prompt
-            if metadata:
-                existing.metadata = metadata
             return await self.update(existing)
 
         summary = TenderSummary(
             organization_id=organization_id,
             tender_id=tender_id,
             summary_type=summary_type,
-            content=content,
+            summary_text=summary_text,
             version=1,
-            generation_model=generation_model,
+            model_used=generation_model,
             generation_prompt=generation_prompt,
-            metadata=metadata,
         )
         return await self.create(summary)
 
@@ -120,47 +118,37 @@ class EligibilityAnalysisRepository:
         return analysis
 
     async def upsert(self, organization_id: UUID, tender_id: UUID, company_profile_id: UUID,
-                     is_eligible: bool, eligibility_score: int = None,
-                     mandatory_requirements: list = None, optional_requirements: list = None,
-                     gaps: list = None, recommendations: list = None,
+                     overall_eligible: bool, eligibility_score: int = None,
+                     criteria_results: list = None, missing_requirements: list = None,
                      generation_model: str = None, generation_prompt: str = None,
                      metadata: dict = None) -> EligibilityAnalysis:
         existing = await self.get_by_tender_id(tender_id)
         if existing:
-            existing.is_eligible = is_eligible
+            existing.overall_eligible = overall_eligible
             if eligibility_score is not None:
                 existing.eligibility_score = eligibility_score
-            if mandatory_requirements is not None:
-                existing.mandatory_requirements = mandatory_requirements
-            if optional_requirements is not None:
-                existing.optional_requirements = optional_requirements
-            if gaps is not None:
-                existing.gaps = gaps
-            if recommendations is not None:
-                existing.recommendations = recommendations
+            if criteria_results is not None:
+                existing.criteria_results = criteria_results
+            if missing_requirements is not None:
+                existing.missing_requirements = missing_requirements
             existing.version += 1
             if generation_model:
-                existing.generation_model = generation_model
+                existing.model_used = generation_model
             if generation_prompt:
                 existing.generation_prompt = generation_prompt
-            if metadata:
-                existing.metadata = metadata
             return await self.update(existing)
 
         analysis = EligibilityAnalysis(
             organization_id=organization_id,
             tender_id=tender_id,
             company_profile_id=company_profile_id,
-            is_eligible=is_eligible,
+            overall_eligible=overall_eligible,
             eligibility_score=eligibility_score,
-            mandatory_requirements=mandatory_requirements,
-            optional_requirements=optional_requirements,
-            gaps=gaps,
-            recommendations=recommendations,
+            criteria_results=criteria_results,
+            missing_requirements=missing_requirements,
             version=1,
-            generation_model=generation_model,
+            model_used=generation_model,
             generation_prompt=generation_prompt,
-            metadata=metadata,
         )
         return await self.create(analysis)
 
@@ -228,39 +216,39 @@ class ComplianceMatrixRepository:
         return matrix
 
     async def upsert(self, organization_id: UUID, tender_id: UUID, proposal_id: UUID,
-                     compliance_score: int, requirements: list,
-                     non_compliant_items: list = None, partially_compliant_items: list = None,
+                     overall_compliance_score: int, requirement_results: list,
+                     mandatory_met: int = 0, mandatory_total: int = 0,
+                     desirable_met: int = 0, desirable_total: int = 0,
                      generation_model: str = None, generation_prompt: str = None,
                      metadata: dict = None) -> ComplianceMatrix:
         existing = await self.get_by_tender_id(tender_id)
         if existing:
-            existing.compliance_score = compliance_score
-            existing.requirements = requirements
-            if non_compliant_items is not None:
-                existing.non_compliant_items = non_compliant_items
-            if partially_compliant_items is not None:
-                existing.partially_compliant_items = partially_compliant_items
+            existing.overall_compliance_score = overall_compliance_score
+            existing.requirement_results = requirement_results
+            existing.mandatory_met = mandatory_met
+            existing.mandatory_total = mandatory_total
+            existing.desirable_met = desirable_met
+            existing.desirable_total = desirable_total
             existing.version += 1
             if generation_model:
-                existing.generation_model = generation_model
+                existing.model_used = generation_model
             if generation_prompt:
                 existing.generation_prompt = generation_prompt
-            if metadata:
-                existing.metadata = metadata
             return await self.update(existing)
 
         matrix = ComplianceMatrix(
             organization_id=organization_id,
             tender_id=tender_id,
             proposal_id=proposal_id,
-            compliance_score=compliance_score,
-            requirements=requirements,
-            non_compliant_items=non_compliant_items,
-            partially_compliant_items=partially_compliant_items,
+            overall_compliance_score=overall_compliance_score,
+            requirement_results=requirement_results,
+            mandatory_met=mandatory_met,
+            mandatory_total=mandatory_total,
+            desirable_met=desirable_met,
+            desirable_total=desirable_total,
             version=1,
-            generation_model=generation_model,
+            model_used=generation_model,
             generation_prompt=generation_prompt,
-            metadata=metadata,
         )
         return await self.create(matrix)
 
@@ -292,3 +280,103 @@ class ComplianceMatrixRepository:
         await self.session.delete(matrix)
         await self.session.flush()
         return True
+
+
+class DocumentContentRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentContent]:
+        result = await self.session.execute(
+            select(DocumentContent).where(DocumentContent.document_id == document_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def upsert(self, document_id: UUID, text_content: str,
+                     page_count: int = None, char_count: int = None,
+                     extraction_method: str = None, metadata: dict = None) -> DocumentContent:
+        existing = await self.get_by_document_id(document_id)
+        if existing:
+            existing.extracted_text = text_content
+            existing.extraction_status = "completed"
+            if page_count is not None:
+                existing.page_count = page_count
+            if char_count is not None:
+                existing.character_count = char_count
+            if extraction_method is not None:
+                existing.extraction_method = extraction_method
+            self.session.add(existing)
+            await self.session.flush()
+            await self.session.refresh(existing)
+            return existing
+
+        content = DocumentContent(
+            document_id=document_id,
+            extracted_text=text_content,
+            extraction_method=extraction_method or "native",
+            extraction_status="completed",
+            page_count=page_count,
+            character_count=char_count,
+        )
+        self.session.add(content)
+        await self.session.flush()
+        await self.session.refresh(content)
+        return content
+
+
+class DocumentProcessingRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentProcessing]:
+        result = await self.session.execute(
+            select(DocumentProcessing).where(DocumentProcessing.document_id == document_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def upsert(self, document_id: UUID, status: DocumentStatus,
+                     error_message: str = None,
+                     started_at = None, completed_at = None) -> DocumentProcessing:
+        existing = await self.get_by_document_id(document_id)
+        if existing:
+            existing.status = status
+            if error_message is not None:
+                existing.error_message = error_message
+            if started_at is not None:
+                existing.started_at = started_at
+            if completed_at is not None:
+                existing.completed_at = completed_at
+            # Update stage based on status
+            if status == DocumentStatus.PROCESSING:
+                existing.stage = "extraction"
+            elif status == DocumentStatus.PROCESSED:
+                existing.stage = "completed"
+            elif status == DocumentStatus.FAILED:
+                existing.stage = "failed"
+            self.session.add(existing)
+            await self.session.flush()
+            await self.session.refresh(existing)
+            return existing
+
+        # Determine stage from status
+        if status == DocumentStatus.PROCESSING:
+            stage = "extraction"
+        elif status == DocumentStatus.PROCESSED:
+            stage = "completed"
+        elif status == DocumentStatus.FAILED:
+            stage = "failed"
+        else:
+            stage = "pending"
+
+        processing = DocumentProcessing(
+            document_id=document_id,
+            stage=stage,
+            status=status,
+            error_message=error_message,
+            started_at=started_at,
+            completed_at=completed_at,
+        )
+        self.session.add(processing)
+        await self.session.flush()
+        await self.session.refresh(processing)
+        return processing

@@ -18,23 +18,22 @@ class TenderSummaryService:
         self.session = session
 
     async def create_summary(self, organization_id: UUID, tender_id: UUID, summary_type: str,
-                             content: str, generation_model: str = None,
-                             generation_prompt: str = None, metadata: dict = None) -> TenderSummary:
+                             summary_text: str, generation_model: str = None,
+                             generation_prompt: str = None) -> TenderSummary:
         # Verify tender exists and belongs to organization
-        from app.modules.tender.repository import TenderRepository
-        tender_repo = TenderRepository(self.session)
-        tender = await tender_repo.get_by_id(tender_id)
-        if not tender or tender.organization_id != organization_id:
+        from app.modules.tender.service import TenderService
+        tender_service = TenderService(self.session)
+        tender = await tender_service.get_by_id(tender_id, organization_id)
+        if not tender:
             raise ResourceNotFoundException("Tender not found")
 
         summary = await self.repo.upsert(
             organization_id=organization_id,
             tender_id=tender_id,
             summary_type=summary_type,
-            content=content,
+            summary_text=summary_text,
             generation_model=generation_model,
             generation_prompt=generation_prompt,
-            metadata=metadata,
         )
         app_logger.info(f"Tender summary created/updated", extra={
             "tender_id": str(tender_id),
@@ -59,44 +58,38 @@ class EligibilityAnalysisService:
         self.session = session
 
     async def create_analysis(self, organization_id: UUID, tender_id: UUID,
-                              company_profile_id: UUID, is_eligible: bool,
+                              company_profile_id: UUID, overall_eligible: bool,
                               eligibility_score: int = None,
-                              mandatory_requirements: list = None,
-                              optional_requirements: list = None,
-                              gaps: list = None, recommendations: list = None,
-                              generation_model: str = None, generation_prompt: str = None,
-                              metadata: dict = None) -> EligibilityAnalysis:
+                              criteria_results: list = None, missing_requirements: list = None,
+                              generation_model: str = None, generation_prompt: str = None) -> EligibilityAnalysis:
         # Verify tender exists and belongs to organization
-        from app.modules.tender.repository import TenderRepository
-        tender_repo = TenderRepository(self.session)
-        tender = await tender_repo.get_by_id(tender_id)
-        if not tender or tender.organization_id != organization_id:
+        from app.modules.tender.service import TenderService
+        tender_service = TenderService(self.session)
+        tender = await tender_service.get_by_id(tender_id, organization_id)
+        if not tender:
             raise ResourceNotFoundException("Tender not found")
 
         # Verify company profile belongs to organization
-        from app.modules.company.repository import CompanyRepository
-        company_repo = CompanyRepository(self.session)
-        company = await company_repo.get_by_id(company_profile_id)
-        if not company or company.organization_id != organization_id:
+        from app.modules.company.service import CompanyService
+        company_service = CompanyService(self.session)
+        company = await company_service.get_by_organization(organization_id)
+        if not company or company.company_profile_id != company_profile_id:
             raise ValidationException("Company profile not found or not accessible")
 
         analysis = await self.repo.upsert(
             organization_id=organization_id,
             tender_id=tender_id,
             company_profile_id=company_profile_id,
-            is_eligible=is_eligible,
+            overall_eligible=overall_eligible,
             eligibility_score=eligibility_score,
-            mandatory_requirements=mandatory_requirements,
-            optional_requirements=optional_requirements,
-            gaps=gaps,
-            recommendations=recommendations,
+            criteria_results=criteria_results,
+            missing_requirements=missing_requirements,
             generation_model=generation_model,
             generation_prompt=generation_prompt,
-            metadata=metadata,
         )
         app_logger.info(f"Eligibility analysis created/updated", extra={
             "tender_id": str(tender_id),
-            "is_eligible": is_eligible
+            "overall_eligible": overall_eligible
         })
         return analysis
 
@@ -117,24 +110,23 @@ class ComplianceMatrixService:
         self.session = session
 
     async def create_matrix(self, organization_id: UUID, tender_id: UUID,
-                            proposal_id: UUID, compliance_score: int,
-                            requirements: list,
-                            non_compliant_items: list = None,
-                            partially_compliant_items: list = None,
-                            generation_model: str = None, generation_prompt: str = None,
-                            metadata: dict = None) -> ComplianceMatrix:
+                            proposal_id: UUID, overall_compliance_score: int,
+                            requirement_results: list,
+                            mandatory_met: int = 0, mandatory_total: int = 0,
+                            desirable_met: int = 0, desirable_total: int = 0,
+                            generation_model: str = None, generation_prompt: str = None) -> ComplianceMatrix:
         # Verify tender exists and belongs to organization
-        from app.modules.tender.repository import TenderRepository
-        tender_repo = TenderRepository(self.session)
-        tender = await tender_repo.get_by_id(tender_id)
-        if not tender or tender.organization_id != organization_id:
+        from app.modules.tender.service import TenderService
+        tender_service = TenderService(self.session)
+        tender = await tender_service.get_by_id(tender_id, organization_id)
+        if not tender:
             raise ResourceNotFoundException("Tender not found")
 
         # Verify proposal exists and belongs to organization
-        from app.modules.proposal.repository import ProposalRepository
-        proposal_repo = ProposalRepository(self.session)
-        proposal = await proposal_repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id:
+        from app.modules.proposal.service import ProposalService
+        proposal_service = ProposalService(self.session)
+        proposal = await proposal_service.get_by_id(proposal_id, organization_id)
+        if not proposal:
             raise ValidationException("Proposal not found or not accessible")
 
         # Verify proposal belongs to tender
@@ -145,18 +137,19 @@ class ComplianceMatrixService:
             organization_id=organization_id,
             tender_id=tender_id,
             proposal_id=proposal_id,
-            compliance_score=compliance_score,
-            requirements=requirements,
-            non_compliant_items=non_compliant_items,
-            partially_compliant_items=partially_compliant_items,
+            overall_compliance_score=overall_compliance_score,
+            requirement_results=requirement_results,
+            mandatory_met=mandatory_met,
+            mandatory_total=mandatory_total,
+            desirable_met=desirable_met,
+            desirable_total=desirable_total,
             generation_model=generation_model,
             generation_prompt=generation_prompt,
-            metadata=metadata,
         )
         app_logger.info(f"Compliance matrix created/updated", extra={
             "tender_id": str(tender_id),
             "proposal_id": str(proposal_id),
-            "compliance_score": compliance_score
+            "overall_compliance_score": overall_compliance_score
         })
         return matrix
 
@@ -178,12 +171,12 @@ class DocumentContentService:
 
     async def save_content(self, document_id: UUID, organization_id: UUID, text_content: str,
                            page_count: int = None, char_count: int = None,
-                           extraction_method: str = None, metadata: dict = None) -> DocumentContent:
+                           extraction_method: str = None) -> DocumentContent:
         # Verify document exists and belongs to organization
-        from app.modules.document.repository import DocumentRepository
-        doc_repo = DocumentRepository(self.session)
-        document = await doc_repo.get_by_id(document_id)
-        if not document or document.organization_id != organization_id:
+        from app.modules.document.service import DocumentService
+        doc_service = DocumentService(self.session)
+        document = await doc_service.get_by_id(document_id, organization_id)
+        if not document:
             raise ResourceNotFoundException("Document not found")
 
         content = await self.repo.upsert(
@@ -192,16 +185,15 @@ class DocumentContentService:
             page_count=page_count,
             char_count=char_count,
             extraction_method=extraction_method,
-            metadata=metadata,
         )
         app_logger.info(f"Document content saved", extra={"document_id": str(document_id)})
         return content
 
     async def get_content(self, organization_id: UUID, document_id: UUID) -> Optional[DocumentContent]:
-        from app.modules.document.repository import DocumentRepository
-        doc_repo = DocumentRepository(self.session)
-        document = await doc_repo.get_by_id(document_id)
-        if not document or document.organization_id != organization_id:
+        from app.modules.document.service import DocumentService
+        doc_service = DocumentService(self.session)
+        document = await doc_service.get_by_id(document_id, organization_id)
+        if not document:
             return None
         return await self.repo.get_by_document_id(document_id)
 
@@ -212,20 +204,20 @@ class DocumentProcessingService:
         self.session = session
 
     async def start_processing(self, document_id: UUID, organization_id: UUID) -> DocumentProcessing:
-        from app.modules.document.repository import DocumentRepository
-        doc_repo = DocumentRepository(self.session)
-        document = await doc_repo.get_by_id(document_id)
-        if not document or document.organization_id != organization_id:
+        from app.modules.document.service import DocumentService
+        doc_service = DocumentService(self.session)
+        document = await doc_service.get_by_id(document_id, organization_id)
+        if not document:
             raise ResourceNotFoundException("Document not found")
 
         from datetime import datetime, timezone
         processing = await self.repo.upsert(
             document_id=document_id,
             status=DocumentStatus.PROCESSING,
-            processing_started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(timezone.utc),
         )
         # Also update document status
-        await doc_repo.update_status(document_id, DocumentStatus.PROCESSING)
+        await doc_service.update_status(document_id, organization_id, DocumentStatus.PROCESSING)
         app_logger.info(f"Document processing started", extra={"document_id": str(document_id)})
         return processing
 
@@ -233,19 +225,17 @@ class DocumentProcessingService:
                                   chunk_count: int, vector_collection: str,
                                   text_content: str = None, page_count: int = None,
                                   char_count: int = None, extraction_method: str = None) -> DocumentProcessing:
-        from app.modules.document.repository import DocumentRepository
-        doc_repo = DocumentRepository(self.session)
-        document = await doc_repo.get_by_id(document_id)
-        if not document or document.organization_id != organization_id:
+        from app.modules.document.service import DocumentService
+        doc_service = DocumentService(self.session)
+        document = await doc_service.get_by_id(document_id, organization_id)
+        if not document:
             raise ResourceNotFoundException("Document not found")
 
         from datetime import datetime, timezone
         processing = await self.repo.upsert(
             document_id=document_id,
             status=DocumentStatus.PROCESSED,
-            chunk_count=chunk_count,
-            vector_collection=vector_collection,
-            processing_completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
         )
 
         # Also save content if provided
@@ -261,8 +251,8 @@ class DocumentProcessingService:
             )
 
         # Update document status
-        await doc_repo.update_status(
-            document_id, DocumentStatus.PROCESSED,
+        await doc_service.update_status(
+            document_id, organization_id, DocumentStatus.PROCESSED,
             chunk_count=chunk_count, vector_collection=vector_collection
         )
 
@@ -274,10 +264,10 @@ class DocumentProcessingService:
 
     async def fail_processing(self, document_id: UUID, organization_id: UUID,
                               error_message: str) -> DocumentProcessing:
-        from app.modules.document.repository import DocumentRepository
-        doc_repo = DocumentRepository(self.session)
-        document = await doc_repo.get_by_id(document_id)
-        if not document or document.organization_id != organization_id:
+        from app.modules.document.service import DocumentService
+        doc_service = DocumentService(self.session)
+        document = await doc_service.get_by_id(document_id, organization_id)
+        if not document:
             raise ResourceNotFoundException("Document not found")
 
         from datetime import datetime, timezone
@@ -285,11 +275,11 @@ class DocumentProcessingService:
             document_id=document_id,
             status=DocumentStatus.FAILED,
             error_message=error_message,
-            processing_completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
         )
 
         # Update document status
-        await doc_repo.update_status(document_id, DocumentStatus.FAILED, error_message=error_message)
+        await doc_service.update_status(document_id, organization_id, DocumentStatus.FAILED, error_message=error_message)
 
         app_logger.error(f"Document processing failed", extra={
             "document_id": str(document_id),
@@ -298,9 +288,9 @@ class DocumentProcessingService:
         return processing
 
     async def get_processing(self, organization_id: UUID, document_id: UUID) -> Optional[DocumentProcessing]:
-        from app.modules.document.repository import DocumentRepository
-        doc_repo = DocumentRepository(self.session)
-        document = await doc_repo.get_by_id(document_id)
-        if not document or document.organization_id != organization_id:
+        from app.modules.document.service import DocumentService
+        doc_service = DocumentService(self.session)
+        document = await doc_service.get_by_id(document_id, organization_id)
+        if not document:
             return None
         return await self.repo.get_by_document_id(document_id)

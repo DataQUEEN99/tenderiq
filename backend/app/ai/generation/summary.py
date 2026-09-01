@@ -11,6 +11,7 @@ from app.ai.retrieval.retriever import Retriever
 from app.ai.prompts import get_prompt
 from app.config import get_settings
 from app.modules.tender.models import TenderSummary
+from datetime import datetime, timezone
 
 
 class SummaryGenerator:
@@ -93,12 +94,13 @@ class SummaryGenerator:
                 organization_id=organization_id,
                 summary_type=summary_type,
                 version=next_version,
-                content=summary_text,
-                created_by=user_id,
-                model=model_name,
+                summary_text=summary_text,
+                model_used=model_name,
                 prompt_hash=prompt_hash,
-                tokens=tokens,
-                latency=latency,
+                tokens_used=tokens,
+                generation_latency_ms=int(latency * 1000),
+                is_current=True,
+                generated_at=datetime.now(timezone.utc),
             )
             db.add(summary_record)
             await db.flush()

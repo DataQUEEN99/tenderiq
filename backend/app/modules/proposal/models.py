@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, Text, ForeignKey, Enum as SQLEnum, Integer, DateTime, Boolean, Float, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Text, ForeignKey, Enum as SQLEnum, Integer, DateTime, Boolean, Index, func
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import enum
 from app.shared.database.base import BaseModel
+import uuid
 
 
 class ProposalStatus(str, enum.Enum):
@@ -18,6 +19,9 @@ class ProposalStatus(str, enum.Enum):
 class Proposal(BaseModel):
     __tablename__ = "proposals"
 
+    # Explicit PK
+    proposal_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
     title = Column(String(500), nullable=False)
     version = Column(Integer, default=1, nullable=False)
     status = Column(SQLEnum(ProposalStatus), nullable=False, default=ProposalStatus.DRAFT, index=True)
@@ -25,9 +29,9 @@ class Proposal(BaseModel):
     compliance_score = Column(Integer, nullable=True)
     submitted_at = Column(DateTime(timezone=True), nullable=True)
 
-    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.id"), nullable=False, index=True)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.tender_id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
 
     tender = relationship("Tender", back_populates="proposals")
     organization = relationship("Organization", back_populates="proposals")
@@ -40,6 +44,12 @@ class Proposal(BaseModel):
 
 class ProposalSection(BaseModel):
     __tablename__ = "proposal_sections"
+    __table_args__ = (
+        Index("ix_proposal_sections_proposal_id", "proposal_id"),
+    )
+
+    # Explicit PK
+    proposal_section_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=True)
@@ -47,8 +57,11 @@ class ProposalSection(BaseModel):
     section_type = Column(String(50), nullable=True)
     is_generated = Column(Boolean, default=False, nullable=False)
     generation_prompt = Column(Text, nullable=True)
+    version = Column(Integer, nullable=False, default=1)
+    is_current = Column(Boolean, nullable=False, default=True)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.id", ondelete="CASCADE"), nullable=False, index=True)
+    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False, index=True)
 
     proposal = relationship("Proposal", back_populates="sections")
 
@@ -56,8 +69,11 @@ class ProposalSection(BaseModel):
 class ProposalDocument(BaseModel):
     __tablename__ = "proposal_documents"
 
-    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.id", ondelete="CASCADE"), nullable=False, index=True)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Explicit PK
+    proposal_document_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.document_id", ondelete="CASCADE"), nullable=False, index=True)
 
     proposal = relationship("Proposal", back_populates="documents")
     document = relationship("Document", back_populates="proposal")
@@ -65,26 +81,32 @@ class ProposalDocument(BaseModel):
 
 class ComplianceMatrix(BaseModel):
     __tablename__ = "compliance_matrices"
+    __table_args__ = (
+        Index("ix_compliance_matrices_tender_id", "tender_id"),
+        Index("ix_compliance_matrices_organization_id", "organization_id"),
+        Index("ix_compliance_matrices_proposal_id", "proposal_id"),
+    )
 
-    version = Column(Integer, default=1, nullable=False)
-    overall_score = Column(Float, nullable=True)
-    summary = Column(JSON, nullable=True)
-    matrix = Column(JSON, nullable=True)
-    gaps = Column(JSON, nullable=True)
-    recommendations = Column(JSON, nullable=True)
+    # Explicit PK
+    compliance_matrix_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Generation metadata
-    model = Column(String(100), nullable=True)
-    prompt_hash = Column(String(64), nullable=True)
-    tokens = Column(Integer, nullable=True)
-    latency = Column(Float, nullable=True)
-
-    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.id", ondelete="CASCADE"), nullable=False, index=True)
-    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.id", ondelete="CASCADE"), nullable=True, index=True)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.tender_id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False)
+    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False, index=True)
+    version = Column(Integer, nullable=False, default=1)
+    overall_compliance_score = Column(Integer, nullable=True)
+    mandatory_met = Column(Integer, nullable=False, default=0)
+    mandatory_total = Column(Integer, nullable=False, default=0)
+    desirable_met = Column(Integer, nullable=False, default=0)
+    desirable_total = Column(Integer, nullable=False, default=0)
+    requirement_results = Column(JSONB, nullable=False)
+    model_used = Column(String(100), nullable=False)
+    prompt_hash = Column(String(64), nullable=False)
+    tokens_used = Column(Integer, nullable=True)
+    generation_latency_ms = Column(Integer, nullable=True)
+    is_current = Column(Boolean, nullable=False, default=True)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     tender = relationship("Tender")
     proposal = relationship("Proposal", back_populates="compliance_matrices")
-    organization = relationship("Organization")
-    creator = relationship("User")
+    organization = relationship("Organization", back_populates="compliance_matrices")

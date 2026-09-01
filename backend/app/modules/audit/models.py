@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Text, ForeignKey, Enum as SQLEnum, JSON, Boolean
+from sqlalchemy import Column, String, Text, ForeignKey, Enum as SQLEnum, Boolean
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -28,7 +29,7 @@ class AuditLog(BaseModel):
     action = Column(SQLEnum(AuditAction), nullable=False, index=True)
     resource_type = Column(String(50), nullable=False, index=True)
     resource_id = Column(UUID(as_uuid=True), nullable=True, index=True)
-    details = Column(JSON, nullable=True)
+    details = Column(JSONB, nullable=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)
     is_deleted = Column(Boolean, default=False, nullable=False)

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import UUID
-from app.modules.company.repository import CompanyRepository
+from app.modules.company.repository import CompanyRepository, CompanyDocumentRepository
 from app.modules.company.models import CompanyProfile
 from app.modules.company.schemas import (
     CompanyProfileCreate, CompanyProfileUpdate, CompanyProfileResponse,
@@ -14,6 +14,7 @@ from app.shared.logging.logger import app_logger
 class CompanyService:
     def __init__(self, session: AsyncSession):
         self.repo = CompanyRepository(session)
+        self.doc_repo = CompanyDocumentRepository(session)
 
     async def create(self, organization_id: UUID, request: CompanyProfileCreate) -> CompanyProfileResponse:
         existing = await self.repo.get_by_organization(organization_id)
@@ -57,18 +58,18 @@ class CompanyService:
         profile = await self.repo.get_by_organization(organization_id)
         if not profile:
             raise ResourceNotFoundException("Company profile not found")
-        link = await self.repo.attach_document(profile.id, UUID(request.document_id), request.document_type)
+        link = await self.doc_repo.attach_document(profile.company_profile_id, organization_id, UUID(request.document_id), request.document_type)
         return CompanyDocumentResponse.model_validate(link)
 
     async def list_documents(self, organization_id: UUID) -> List[CompanyDocumentResponse]:
         profile = await self.repo.get_by_organization(organization_id)
         if not profile:
             raise ResourceNotFoundException("Company profile not found")
-        docs = await self.repo.get_documents(profile.id)
+        docs = await self.doc_repo.get_documents(profile.company_profile_id, organization_id)
         return [CompanyDocumentResponse.model_validate(d) for d in docs]
 
     async def detach_document(self, organization_id: UUID, document_id: UUID) -> bool:
         profile = await self.repo.get_by_organization(organization_id)
         if not profile:
             raise ResourceNotFoundException("Company profile not found")
-        return await self.repo.detach_document(profile.id, document_id)
+        return await self.doc_repo.detach_document(profile.company_profile_id, organization_id, document_id)

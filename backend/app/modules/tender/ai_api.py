@@ -34,10 +34,9 @@ async def create_tender_summary(
         organization_id=current_user.organization_id,
         tender_id=tender_id,
         summary_type=request.summary_type,
-        content=request.content,
-        generation_model=request.generation_model,
+        summary_text=request.summary_text,
+        generation_model=request.model_used,
         generation_prompt=request.generation_prompt,
-        metadata=request.metadata,
     )
 
 
@@ -80,15 +79,12 @@ async def create_eligibility_analysis(
         organization_id=current_user.organization_id,
         tender_id=tender_id,
         company_profile_id=UUID(request.company_profile_id),
-        is_eligible=request.is_eligible,
+        overall_eligible=request.overall_eligible,
         eligibility_score=request.eligibility_score,
-        mandatory_requirements=request.mandatory_requirements,
-        optional_requirements=request.optional_requirements,
-        gaps=request.gaps,
-        recommendations=request.recommendations,
-        generation_model=request.generation_model,
+        criteria_results=request.criteria_results,
+        missing_requirements=request.missing_requirements,
+        generation_model=request.model_used,
         generation_prompt=request.generation_prompt,
-        metadata=request.metadata,
     )
 
 
@@ -130,13 +126,14 @@ async def create_compliance_matrix(
         organization_id=current_user.organization_id,
         tender_id=tender_id,
         proposal_id=UUID(request.proposal_id),
-        compliance_score=request.compliance_score,
-        requirements=request.requirements,
-        non_compliant_items=request.non_compliant_items,
-        partially_compliant_items=request.partially_compliant_items,
-        generation_model=request.generation_model,
+        overall_compliance_score=request.overall_compliance_score,
+        requirement_results=request.requirement_results,
+        mandatory_met=request.mandatory_met,
+        mandatory_total=request.mandatory_total,
+        desirable_met=request.desirable_met,
+        desirable_total=request.desirable_total,
+        generation_model=request.model_used,
         generation_prompt=request.generation_prompt,
-        metadata=request.metadata,
     )
 
 

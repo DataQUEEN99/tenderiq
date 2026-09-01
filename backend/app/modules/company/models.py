@@ -1,12 +1,16 @@
-from sqlalchemy import Column, String, Text, ARRAY, ForeignKey, Enum as SQLEnum, Boolean
+from sqlalchemy import Column, String, Text, ARRAY, ForeignKey, Enum as SQLEnum, Boolean, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 from app.shared.database.base import BaseModel
+import uuid
 
 
 class CompanyProfile(BaseModel):
     __tablename__ = "company_profiles"
+
+    # Explicit PK
+    company_profile_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     company_name = Column(String(255), nullable=False)
     industry = Column(String(100), nullable=True)
@@ -23,7 +27,7 @@ class CompanyProfile(BaseModel):
     key_personnel = Column(Text, nullable=True)
     financial_info = Column(Text, nullable=True)
 
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, unique=True, index=True)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
 
     organization = relationship("Organization", back_populates="company_profile")
     documents = relationship("CompanyDocument", back_populates="company_profile", cascade="all, delete-orphan")
@@ -31,10 +35,18 @@ class CompanyProfile(BaseModel):
 
 class CompanyDocument(BaseModel):
     __tablename__ = "company_documents"
+    __table_args__ = (
+        Index("ix_company_documents_company_profile_id", "company_profile_id"),
+        Index("ix_company_documents_document_id", "document_id"),
+    )
 
-    company_profile_id = Column(UUID(as_uuid=True), ForeignKey("company_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
-    document_type = Column(String(50), nullable=True)
+    # Explicit PK
+    company_document_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    company_profile_id = Column(UUID(as_uuid=True), ForeignKey("company_profiles.company_profile_id", ondelete="CASCADE"), nullable=False, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.document_id", ondelete="CASCADE"), nullable=False, index=True)
+    relationship_type = Column(String(50), nullable=False, default="primary")
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
 
     company_profile = relationship("CompanyProfile", back_populates="documents")
-    document = relationship("Document")
+    document = relationship("Document", back_populates="company_profile")
