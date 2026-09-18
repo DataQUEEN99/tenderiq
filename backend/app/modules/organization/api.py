@@ -16,8 +16,8 @@ from app.shared.exceptions.custom_exceptions import PermissionDeniedException
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
 
-def _verify_tenant_access(current_user: User, org_id: UUID):
-    if current_user.role != UserRole.ADMIN and current_user.organization_id != org_id:
+def _verify_tenant_access(current_user: User, organization_id: UUID):
+    if current_user.role != UserRole.ADMIN and current_user.organization_id != organization_id:
         raise PermissionDeniedException("Access denied to organization outside tenant boundary.")
 
 

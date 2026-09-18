@@ -146,6 +146,7 @@ def cleanup_failed_documents():
                 for doc in stuck_docs:
                     await repo.update_status(
                         document_id=doc.document_id,
+                        organization_id=doc.organization_id,
                         status=DocumentStatus.FAILED,
                         error_message="Processing timeout - marked as failed by cleanup task"
                     )

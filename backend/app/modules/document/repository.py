@@ -13,8 +13,8 @@ class DocumentRepository(TenantRepository[Document]):
         super().__init__(session, Document, primary_key_attr='document_id')
 
     # Override get_by_id to require organization_id
-    async def get_by_id(self, doc_id: UUID, organization_id: UUID) -> Optional[Document]:
-        return await super().get_by_id(doc_id, organization_id)
+    async def get_by_id(self, document_id: UUID, organization_id: UUID) -> Optional[Document]:
+        return await super().get_by_id(document_id, organization_id)
 
     async def get_by_hash(self, organization_id: UUID, file_hash: str) -> Optional[Document]:
         result = await self.session.execute(
@@ -32,10 +32,10 @@ class DocumentRepository(TenantRepository[Document]):
         # Placeholder - would need ProposalSection model imported
         return []
 
-    async def update_status(self, doc_id: UUID, organization_id: UUID, status: DocumentStatus,
+    async def update_status(self, document_id: UUID, organization_id: UUID, status: DocumentStatus,
                             error_message: str = None, chunk_count: int = None,
                             vector_collection: str = None) -> Optional[Document]:
-        document = await self.get_by_id(doc_id, organization_id)
+        document = await self.get_by_id(document_id, organization_id)
         if not document:
             return None
 

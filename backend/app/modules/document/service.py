@@ -205,7 +205,7 @@ class DocumentService:
 
         # Get processing record
         proc_repo = DocumentProcessingRepository(self.repo.session)
-        processing = await proc_repo.get_by_document_id(document_id)
+        processing = await proc_repo.get_by_document_id(document_id, organization_id)
 
         if not processing:
             return DocumentProgressResponse(

@@ -81,7 +81,7 @@ class ExportService:
         import os
 
         org_id = organization_id or getattr(proposal, "organization_id", None)
-        proposal_id = getattr(proposal, "id", None)
+        proposal_id = getattr(proposal, "proposal_id", getattr(proposal, "id", None))
 
         pdf = FPDF()
         pdf.add_page()
@@ -114,7 +114,7 @@ class ExportService:
         import io
 
         org_id = organization_id or getattr(proposal, "organization_id", None)
-        proposal_id = getattr(proposal, "id", None)
+        proposal_id = getattr(proposal, "proposal_id", getattr(proposal, "id", None))
         proposal_title = getattr(proposal, "title", "Proposal")
 
         doc = Document()
@@ -138,7 +138,7 @@ class ExportService:
 
     async def _export_html(self, proposal, content: str, export_id: UUID, organization_id: UUID = None) -> str:
         org_id = organization_id or getattr(proposal, "organization_id", None)
-        proposal_id = getattr(proposal, "id", None)
+        proposal_id = getattr(proposal, "proposal_id", getattr(proposal, "id", None))
         proposal_title = getattr(proposal, "title", "Proposal")
 
         html = f"""<!DOCTYPE html>

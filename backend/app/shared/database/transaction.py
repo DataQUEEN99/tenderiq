@@ -8,43 +8,34 @@ from app.shared.logging.logger import app_logger
 class TransactionManager:
     """Manages database transactions with explicit commit/rollback boundaries.
 
-    This is a lightweight wrapper around SQLAlchemy's transaction.
-    The UnitOfWork owns the transaction lifecycle - this class just provides
-    begin/commit/rollback methods without context manager logic.
+    This is a lightweight wrapper around SQLAlchemy's session transaction.
+    UnitOfWork is the primary transaction owner.
     """
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self._transaction = None
-        self._active = False
 
     async def begin(self) -> None:
-        """Begin a new transaction"""
-        if self._active:
+        """Begin a new transaction if not already in one"""
+        if self.session.in_transaction():
             raise RuntimeError("Transaction already in progress")
-        self._transaction = self.session.begin()
-        await self._transaction.__aenter__()
-        self._active = True
+        await self.session.begin()
 
     async def commit(self) -> None:
         """Explicitly commit the current transaction"""
-        if not self._active or not self._transaction:
+        if not self.session.in_transaction():
             raise RuntimeError("No active transaction to commit")
-        await self._transaction.__aexit__(None, None, None)
-        self._transaction = None
-        self._active = False
+        await self.session.commit()
 
     async def rollback(self) -> None:
         """Explicitly rollback the current transaction"""
-        if not self._active or not self._transaction:
+        if not self.session.in_transaction():
             raise RuntimeError("No active transaction to rollback")
-        await self._transaction.__aexit__(Exception("Manual rollback"), None, None)
-        self._transaction = None
-        self._active = False
+        await self.session.rollback()
 
     @property
     def is_active(self) -> bool:
-        return self._active
+        return self.session.in_transaction()
 
 
 class UnitOfWork:
@@ -56,7 +47,6 @@ class UnitOfWork:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self._tx_manager = TransactionManager(session)
         self._committed = False
         self._entered = False
 
@@ -66,29 +56,42 @@ class UnitOfWork:
         if self._entered:
             raise RuntimeError("UnitOfWork already entered - cannot nest transactions")
         self._entered = True
-        await self._tx_manager.begin()
-        try:
-            yield self
-            await self._tx_manager.commit()
-            self._committed = True
-        except Exception:
-            await self._tx_manager.rollback()
-            self._committed = False
-            raise
-        finally:
-            self._entered = False
+        self._committed = False
+
+        if not self.session.in_transaction():
+            async with self.session.begin():
+                try:
+                    yield self
+                    self._committed = True
+                except Exception:
+                    self._committed = False
+                    raise
+                finally:
+                    self._entered = False
+        else:
+            try:
+                yield self
+                if not self._committed:
+                    await self.session.commit()
+                    self._committed = True
+            except Exception:
+                await self.session.rollback()
+                self._committed = False
+                raise
+            finally:
+                self._entered = False
 
     async def commit(self) -> None:
         """Commit the unit of work"""
-        if not self._committed:
-            await self._tx_manager.commit()
+        if not self._committed and self.session.in_transaction():
+            await self.session.commit()
             self._committed = True
 
     async def rollback(self) -> None:
         """Rollback the unit of work"""
-        if not self._committed:
-            await self._tx_manager.rollback()
-            self._committed = True  # Mark as resolved
+        if self.session.in_transaction():
+            await self.session.rollback()
+            self._committed = True
 
     @property
     def is_committed(self) -> bool:
@@ -96,7 +99,7 @@ class UnitOfWork:
 
     @property
     def is_active(self) -> bool:
-        return self._tx_manager.is_active
+        return self._entered and self.session.in_transaction()
 
 
 @asynccontextmanager
@@ -104,12 +107,15 @@ async def get_transaction(session: AsyncSession) -> AsyncGenerator[TransactionMa
     """Get a transaction manager for the session.
 
     Use this for lower-level transaction control when UnitOfWork is not needed.
-    The caller is responsible for calling begin()/commit()/rollback().
     """
     manager = TransactionManager(session)
+    if not session.in_transaction():
+        await manager.begin()
     try:
         yield manager
-    finally:
-        # Ensure any pending transaction is rolled back
+        if manager.is_active:
+            await manager.commit()
+    except Exception:
         if manager.is_active:
             await manager.rollback()
+        raise
