@@ -211,7 +211,7 @@ The system implements **defense-in-depth** isolation:
 - Multi-user Collaboration
 - Analytics Dashboard
 
-## Modular Architecture & Enhancements (Phases 5 - 13)
+## Modular Architecture & Enhancements (Phases 5 - 14)
 
 The backend has been consolidated into an enterprise-grade **Modular Monolith** adhering to the Backend Architecture Design ([`docs/BAD.md`](file:///c:/Users/Rajkumar%20Pandey/Downloads/tenderiq-main/tenderiq-main/docs/BAD.md)):
 
@@ -261,6 +261,15 @@ The backend has been consolidated into an enterprise-grade **Modular Monolith** 
 
 ### 9. Architectural Documentation (Phase 13)
 - Detailed entity schemas, transaction boundaries, tenant isolation rules, and AI ingestion/generation pipelines are comprehensively documented in [`docs/BAD.md`](file:///c:/Users/Rajkumar%20Pandey/Downloads/tenderiq-main/tenderiq-main/docs/BAD.md).
+
+### 10. Security, Transaction-Safety & Layering Remediation (Phase 14)
+Implemented multi-tenant hardening, transaction-safety, and layering fixes according to the Backend Remediation Plan:
+- **Single-Owner Transaction Management**: Refactored `UnitOfWork` in `backend/app/shared/database/transaction.py` to serve as the sole transaction boundary with native async context management; eliminated manual `__aenter__()` / `__aexit__()` calls; prevented double begin/commit via `session.in_transaction()`.
+- **Tenant Isolation in Document Processing**: Enforced `organization_id` scoping in `DocumentService.get_progress` when querying `DocumentProcessingRepository`, and standardized `DocumentRepository.get_by_id` and `update_status` parameters to `(document_id, organization_id)`.
+- **Background Worker Transaction Safety**: Passed `organization_id=doc.organization_id` in `document_tasks.py` during stuck document status cleanup within Celery background tasks.
+- **Organization API Tenant Verification**: Fixed parameter bug in `_verify_tenant_access(current_user, organization_id)` in `backend/app/modules/organization/api.py`.
+- **Explicit Primary Key References**: Updated export generation (`_export_pdf`, `_export_docx`, `_export_html`) in `backend/app/modules/export/service.py` to use explicit `proposal_id = getattr(proposal, "proposal_id", getattr(proposal, "id", None))`.
+- **Configuration & Validation Consistency**: Synchronized `ALLOWED_EXTENSIONS=.pdf` in `backend/.env.example` to ensure uniform PDF-only validation across application configuration and validators.
 
 ## License
 
