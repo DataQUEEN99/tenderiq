@@ -66,10 +66,16 @@ class DocumentContentRepository(TenantRepository[DocumentContent]):
     def __init__(self, session: AsyncSession):
         super().__init__(session, DocumentContent, primary_key_attr='document_content_id')
 
-    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentContent]:
-        result = await self.session.execute(
-            select(DocumentContent).where(DocumentContent.document_id == document_id)
-        )
+    async def get_by_document_id(self, document_id: UUID, organization_id: UUID = None) -> Optional[DocumentContent]:
+        """Get document content by document_id, optionally scoped by organization_id for tenant isolation."""
+        from app.modules.document.models import Document
+        query = select(DocumentContent).where(DocumentContent.document_id == document_id)
+
+        if organization_id is not None:
+            # Join with Document to enforce tenant isolation
+            query = query.join(Document).where(Document.organization_id == organization_id)
+
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def create(self, content: DocumentContent) -> DocumentContent:
@@ -81,8 +87,8 @@ class DocumentContentRepository(TenantRepository[DocumentContent]):
         return content
 
     async def upsert(self, document_id: UUID, extracted_text: str, page_count: int = None,
-                     character_count: int = None, extraction_method: str = None):
-        existing = await self.get_by_document_id(document_id)
+                     character_count: int = None, extraction_method: str = None, organization_id: UUID = None):
+        existing = await self.get_by_document_id(document_id, organization_id)
         if existing:
             existing.extracted_text = extracted_text
             existing.extraction_status = "completed"
@@ -109,10 +115,16 @@ class DocumentProcessingRepository(TenantRepository[DocumentProcessing]):
     def __init__(self, session: AsyncSession):
         super().__init__(session, DocumentProcessing, primary_key_attr='document_processing_id')
 
-    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentProcessing]:
-        result = await self.session.execute(
-            select(DocumentProcessing).where(DocumentProcessing.document_id == document_id)
-        )
+    async def get_by_document_id(self, document_id: UUID, organization_id: UUID = None) -> Optional[DocumentProcessing]:
+        """Get document processing by document_id, optionally scoped by organization_id for tenant isolation."""
+        from app.modules.document.models import Document
+        query = select(DocumentProcessing).where(DocumentProcessing.document_id == document_id)
+
+        if organization_id is not None:
+            # Join with Document to enforce tenant isolation
+            query = query.join(Document).where(Document.organization_id == organization_id)
+
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def create(self, processing: DocumentProcessing) -> DocumentProcessing:
@@ -124,8 +136,8 @@ class DocumentProcessingRepository(TenantRepository[DocumentProcessing]):
         return processing
 
     async def upsert(self, document_id: UUID, status: str, error_message: str = None,
-                     started_at=None, completed_at=None, metadata: dict = None):
-        existing = await self.get_by_document_id(document_id)
+                     started_at=None, completed_at=None, metadata: dict = None, organization_id: UUID = None):
+        existing = await self.get_by_document_id(document_id, organization_id)
         if existing:
             existing.status = status
             if error_message:

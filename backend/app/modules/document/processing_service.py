@@ -35,8 +35,8 @@ class DocumentProcessingPipeline:
     async def process_document(self, document_id: UUID, organization_id: UUID) -> dict:
         """Process a document through the complete pipeline"""
         # Get document
-        document = await self.doc_repo.get_by_id(document_id)
-        if not document or document.organization_id != organization_id:
+        document = await self.doc_repo.get_by_id(document_id, organization_id)
+        if not document:
             raise ValueError("Document not found")
 
         # Get file path
@@ -49,7 +49,7 @@ class DocumentProcessingPipeline:
 
         try:
             # Step 1: Extract text
-            await self.processing_service.update_progress(document_id, "text_extraction", 10)
+            await self.processing_service.update_progress(document_id, organization_id, "text_extraction", 10)
             app_logger.info(f"Extracting text from document", extra={"document_id": str(document_id)})
             text = await self.text_extractor.extract(file_path, document.mime_type)
 
@@ -77,7 +77,7 @@ class DocumentProcessingPipeline:
             )
 
             # Step 2: Chunk text
-            await self.processing_service.update_progress(document_id, "chunking", 30)
+            await self.processing_service.update_progress(document_id, organization_id, "chunking", 30)
             app_logger.info(f"Chunking text", extra={"document_id": str(document_id)})
             chunks = self.chunker.chunk(text)
 
@@ -85,12 +85,12 @@ class DocumentProcessingPipeline:
                 raise ValueError("No chunks generated from document")
 
             # Step 3: Generate embeddings
-            await self.processing_service.update_progress(document_id, "embedding_generation", 50)
+            await self.processing_service.update_progress(document_id, organization_id, "embedding_generation", 50)
             app_logger.info(f"Generating embeddings for {len(chunks)} chunks", extra={"document_id": str(document_id)})
             embeddings = await self.embedding_generator.generate(chunks)
 
             # Step 4: Index in vector store
-            await self.processing_service.update_progress(document_id, "vector_indexing", 80)
+            await self.processing_service.update_progress(document_id, organization_id, "vector_indexing", 80)
             collection_name = f"org_{organization_id}"
             app_logger.info(f"Indexing in vector store", extra={
                 "document_id": str(document_id),
@@ -106,7 +106,7 @@ class DocumentProcessingPipeline:
             )
 
             # Step 5: Complete processing
-            await self.processing_service.update_progress(document_id, "completed", 100)
+            await self.processing_service.update_progress(document_id, organization_id, "completed", 100)
             await self.processing_service.complete_processing(
                 document_id=document_id,
                 organization_id=organization_id,
@@ -121,6 +121,7 @@ class DocumentProcessingPipeline:
             # Update document status in main table
             await self.doc_repo.update_status(
                 document_id=document_id,
+                organization_id=organization_id,
                 status=DocumentStatus.PROCESSED,
                 chunk_count=len(chunks),
                 vector_collection=collection_name
@@ -149,6 +150,7 @@ class DocumentProcessingPipeline:
             await self.processing_service.fail_processing(document_id, organization_id, str(e))
             await self.doc_repo.update_status(
                 document_id=document_id,
+                organization_id=organization_id,
                 status=DocumentStatus.FAILED,
                 error_message=str(e)
             )
@@ -160,9 +162,15 @@ class DocumentProcessingPipeline:
 
 
 async def process_document_background(document_id: UUID, organization_id: UUID):
-    """Background task to process a document - can be called from a worker"""
+    """Background task to process a document - can be called from a worker.
+    Uses explicit transaction management: BEGIN -> processing -> COMMIT/ROLLBACK
+    """
     from app.shared.database.session import async_session_maker
+    from app.shared.database.transaction import UnitOfWork
 
     async with async_session_maker() as session:
-        pipeline = DocumentProcessingPipeline(session)
-        return await pipeline.process_document(document_id, organization_id)
+        uow = UnitOfWork(session)
+        async with uow.begin():
+            pipeline = DocumentProcessingPipeline(session)
+            return await pipeline.process_document(document_id, organization_id)
+        # Transaction committed automatically on success

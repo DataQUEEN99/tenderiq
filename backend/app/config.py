@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     database_url: str = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/tenderiq")
     database_echo: bool = False
 
+    # Redis
+    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
     # JWT settings (compatible with both naming conventions)
     jwt_secret: str = os.getenv("JWT_SECRET", "change-me-in-production")
     jwt_algorithm: str = "HS256"
@@ -33,7 +36,6 @@ class Settings(BaseSettings):
     ollama_embedding_model: str = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
 
     chroma_mode: str = os.getenv("CHROMA_MODE", "http")  # "local" or "http"
-    chroma_mode: str = os.getenv("CHROMA_MODE", "http")  # "local" or "http"
     chroma_host: str = os.getenv("CHROMA_HOST", "localhost")
     chroma_port: int = int(os.getenv("CHROMA_PORT", "8000"))
     chromadb_path: str = os.getenv("CHROMADB_PATH", "./chroma_db")
@@ -49,7 +51,7 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 50
     max_document_size: int = 52428800
     allowed_file_types: List[str] = ["application/pdf"]
-    allowed_extensions: List[str] = [".pdf", ".docx", ".txt"]
+    allowed_extensions: List[str] = [".pdf"]
     upload_dir: str = os.getenv("UPLOAD_DIR", "./data/uploads")
     chunk_size: int = 1000
     chunk_overlap: int = 200

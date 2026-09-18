@@ -47,7 +47,7 @@ class DocumentStatusUpdate(BaseModel):
 
 
 class DocumentStatusResponse(BaseModel):
-    id: str
+    document_id: str
     status: DocumentStatus
     chunk_count: int
     vector_collection: Optional[str] = None

@@ -52,22 +52,22 @@ class ProposalService:
                 title=sec["title"],
                 order=sec["order"],
                 section_type=sec["section_type"],
-                proposal_id=proposal.id,
+                proposal_id=proposal.proposal_id,
             )
             await self.repo.add_section(section)
 
-        app_logger.info(f"Proposal created", extra={"proposal_id": str(proposal.id), "tender_id": str(tender_id)})
+        app_logger.info(f"Proposal created", extra={"proposal_id": str(proposal.proposal_id), "tender_id": str(tender_id)})
         return ProposalResponse.model_validate(proposal)
 
     async def get_by_id(self, proposal_id: UUID, organization_id: UUID) -> ProposalResponse:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
         return ProposalResponse.model_validate(proposal)
 
     async def get_detail(self, proposal_id: UUID, organization_id: UUID) -> ProposalDetailResponse:
-        proposal = await self.repo.get_by_id_with_details(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id_with_details(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         response = ProposalDetailResponse.model_validate(proposal)
@@ -79,8 +79,8 @@ class ProposalService:
         return await self.get_detail(proposal_id, organization_id)
 
     async def update(self, proposal_id: UUID, organization_id: UUID, request: ProposalUpdate) -> ProposalResponse:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         if request.title:
@@ -92,8 +92,8 @@ class ProposalService:
         return ProposalResponse.model_validate(proposal)
 
     async def update_status(self, proposal_id: UUID, organization_id: UUID, request: ProposalStatusUpdate) -> ProposalResponse:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         valid_transitions = {
@@ -117,8 +117,8 @@ class ProposalService:
         return ProposalResponse.model_validate(proposal)
 
     async def create_section(self, proposal_id: UUID, organization_id: UUID, request: ProposalSectionCreate) -> ProposalSectionCreate:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         section = ProposalSection(
@@ -132,8 +132,8 @@ class ProposalService:
         return ProposalSectionCreate.model_validate(section)
 
     async def update_section(self, proposal_id: UUID, organization_id: UUID, section_id: UUID, request: ProposalSectionUpdate):
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         section = await self.repo.get_section_by_id(section_id, proposal_id)
@@ -153,8 +153,8 @@ class ProposalService:
         return ProposalSectionCreate.model_validate(section)
 
     async def delete_section(self, proposal_id: UUID, organization_id: UUID, section_id: UUID) -> None:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         success = await self.repo.delete_section(section_id, proposal_id)
@@ -162,8 +162,8 @@ class ProposalService:
             raise ResourceNotFoundException("Section not found")
 
     async def generate(self, proposal_id: UUID, organization_id: UUID, company_profile: dict, requirements: List[str]) -> dict:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         result = await self.ai_facade.generate_proposal(
@@ -175,7 +175,7 @@ class ProposalService:
 
         sections = result.get("sections", [])
         for sec_data in sections:
-            section = await self.repo.get_section_by_type(proposal_id, sec_data.get("section_type"))
+            section = await self.repo.get_section_by_type(proposal_id, organization_id, sec_data.get("section_type"))
             if section:
                 section.content = sec_data.get("content")
                 section.is_generated = True
@@ -194,8 +194,8 @@ class ProposalService:
         return result
 
     async def attach_documents(self, proposal_id: UUID, organization_id: UUID, document_ids: List[UUID]) -> List[str]:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
         from app.modules.document.service import DocumentService
@@ -207,15 +207,15 @@ class ProposalService:
             if doc_id in existing:
                 raise ValidationException(f"Document {doc_id} already attached")
 
-        await self.repo.attach_documents(proposal_id, document_ids)
+        await self.repo.attach_documents(proposal_id, organization_id, document_ids)
         return [str(doc_id) for doc_id in document_ids]
 
     async def detach_document(self, proposal_id: UUID, organization_id: UUID, document_id: UUID) -> None:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id or proposal.is_deleted:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
-        success = await self.repo.detach_document(proposal_id, document_id)
+        success = await self.repo.detach_document(proposal_id, organization_id, document_id)
         if not success:
             raise ResourceNotFoundException("Document not attached to this proposal")
 
@@ -225,9 +225,9 @@ class ProposalService:
         return [ProposalResponse.model_validate(item) for item in items], total
 
     async def delete(self, proposal_id: UUID, organization_id: UUID) -> None:
-        proposal = await self.repo.get_by_id(proposal_id)
-        if not proposal or proposal.organization_id != organization_id:
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal:
             raise ResourceNotFoundException("Proposal not found")
 
-        await self.repo.soft_delete(proposal_id)
+        await self.repo.soft_delete(proposal_id, organization_id)
         app_logger.info(f"Proposal deleted", extra={"proposal_id": str(proposal_id)})

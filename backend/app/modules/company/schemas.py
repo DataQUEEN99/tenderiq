@@ -36,7 +36,7 @@ class CompanyProfileUpdate(BaseModel):
 
 
 class CompanyProfileResponse(BaseModel):
-    id: str
+    company_profile_id: str
     company_name: str
     industry: Optional[str]
     employee_count: Optional[str]
@@ -64,7 +64,7 @@ class CompanyDocumentAttachRequest(BaseModel):
 
 
 class CompanyDocumentResponse(BaseModel):
-    id: str
+    company_document_id: str
     company_profile_id: str
     document_id: str
     document_type: Optional[str]

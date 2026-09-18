@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import select
 from app.config import get_settings
 from app.shared.database.session import Base
+from app.shared.database.transaction import UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -34,19 +35,23 @@ def process_document(self, document_id: str, organization_id: str):
     text extraction -> chunking -> embedding -> vector indexing -> persistence
 
     This task runs in a Celery worker with automatic retry on failure.
+    Uses explicit transaction management: BEGIN -> processing -> COMMIT/ROLLBACK
     """
     import asyncio
 
     async def _process():
         async with async_session_maker() as session:
-            # Import here to avoid circular imports
-            from app.modules.document.processing_service import DocumentProcessingPipeline
+            uow = UnitOfWork(session)
+            async with uow.begin():
+                # Import here to avoid circular imports
+                from app.modules.document.processing_service import DocumentProcessingPipeline
 
-            pipeline = DocumentProcessingPipeline(session)
-            result = await pipeline.process_document(
-                document_id=UUID(document_id),
-                organization_id=UUID(organization_id)
-            )
+                pipeline = DocumentProcessingPipeline(session)
+                result = await pipeline.process_document(
+                    document_id=UUID(document_id),
+                    organization_id=UUID(organization_id)
+                )
+            # Transaction committed automatically on success
             return result
 
     try:
@@ -76,18 +81,22 @@ def process_document(self, document_id: str, organization_id: str):
 def reprocess_document(self, document_id: str, organization_id: str):
     """
     Reprocess a document through the complete pipeline.
+    Uses explicit transaction management: BEGIN -> processing -> COMMIT/ROLLBACK
     """
     import asyncio
 
     async def _reprocess():
         async with async_session_maker() as session:
-            from app.modules.document.processing_service import DocumentProcessingPipeline
+            uow = UnitOfWork(session)
+            async with uow.begin():
+                from app.modules.document.processing_service import DocumentProcessingPipeline
 
-            pipeline = DocumentProcessingPipeline(session)
-            result = await pipeline.process_document(
-                document_id=UUID(document_id),
-                organization_id=UUID(organization_id)
-            )
+                pipeline = DocumentProcessingPipeline(session)
+                result = await pipeline.process_document(
+                    document_id=UUID(document_id),
+                    organization_id=UUID(organization_id)
+                )
+            # Transaction committed automatically on success
             return result
 
     try:
@@ -110,37 +119,41 @@ def reprocess_document(self, document_id: str, organization_id: str):
 def cleanup_failed_documents():
     """
     Periodic task to clean up documents stuck in PROCESSING state.
+    Uses explicit transaction management: BEGIN -> processing -> COMMIT/ROLLBACK
     """
     import asyncio
 
     async def _cleanup():
         async with async_session_maker() as session:
-            from app.modules.document.repository import DocumentRepository
-            from app.modules.document.models import Document, DocumentStatus
-            from datetime import datetime, timedelta, timezone
+            uow = UnitOfWork(session)
+            async with uow.begin():
+                from app.modules.document.repository import DocumentRepository
+                from app.modules.document.models import Document, DocumentStatus
+                from datetime import datetime, timedelta, timezone
 
-            repo = DocumentRepository(session)
+                repo = DocumentRepository(session)
 
-            # Find documents stuck in PROCESSING for more than 1 hour
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
-            result = await session.execute(
-                select(Document).where(
-                    Document.status == DocumentStatus.PROCESSING,
-                    Document.updated_at < cutoff
+                # Find documents stuck in PROCESSING for more than 1 hour
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+                result = await session.execute(
+                    select(Document).where(
+                        Document.status == DocumentStatus.PROCESSING,
+                        Document.updated_at < cutoff
+                    )
                 )
-            )
-            stuck_docs = result.scalars().all()
+                stuck_docs = result.scalars().all()
 
-            for doc in stuck_docs:
-                await repo.update_status(
-                    document_id=doc.document_id,
-                    status=DocumentStatus.FAILED,
-                    error_message="Processing timeout - marked as failed by cleanup task"
-                )
-                logger.warning(f"Marked stuck document as failed", extra={
-                    "document_id": str(doc.document_id)
-                })
+                for doc in stuck_docs:
+                    await repo.update_status(
+                        document_id=doc.document_id,
+                        status=DocumentStatus.FAILED,
+                        error_message="Processing timeout - marked as failed by cleanup task"
+                    )
+                    logger.warning(f"Marked stuck document as failed", extra={
+                        "document_id": str(doc.document_id)
+                    })
 
+            # Transaction committed automatically on success
             return len(stuck_docs)
 
     try:

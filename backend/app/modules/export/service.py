@@ -38,13 +38,13 @@ class ExportService:
         await self.repo.update(export)
 
         try:
-            file_path = await self._generate_export(proposal_detail, request.export_format, export.id, organization_id)
+            file_path = await self._generate_export(proposal_detail, request.export_format, export.export_id, organization_id)
             export.file_path = file_path
             export.status = ExportStatus.COMPLETED
         except Exception as e:
             export.status = ExportStatus.FAILED
             export.error_message = str(e)
-            app_logger.error(f"Export failed", extra={"export_id": str(export.id), "error": str(e)})
+            app_logger.error(f"Export failed", extra={"export_id": str(export.export_id), "error": str(e)})
 
         export = await self.repo.update(export)
         return ExportResponse.model_validate(export)
@@ -175,8 +175,8 @@ class ExportService:
         return path
 
     async def get_export(self, export_id: UUID, organization_id: UUID) -> ExportResponse:
-        export = await self.repo.get_by_id(export_id)
-        if not export or export.organization_id != organization_id or export.is_deleted:
+        export = await self.repo.get_by_id(export_id, organization_id)
+        if not export or export.is_deleted:
             raise ResourceNotFoundException("Export not found")
         return ExportResponse.model_validate(export)
 
@@ -185,8 +185,8 @@ class ExportService:
         return [ExportResponse.model_validate(item) for item in items], total
 
     async def delete_export(self, export_id: UUID, organization_id: UUID) -> None:
-        export = await self.repo.get_by_id(export_id)
-        if not export or export.organization_id != organization_id:
+        export = await self.repo.get_by_id(export_id, organization_id)
+        if not export:
             raise ResourceNotFoundException("Export not found")
 
         if export.file_path:
@@ -195,12 +195,12 @@ class ExportService:
             except Exception as e:
                 app_logger.warning(f"Failed to delete export file", extra={"error": str(e)})
 
-        await self.repo.soft_delete(export_id)
+        await self.repo.soft_delete(export_id, organization_id)
         app_logger.info(f"Export deleted", extra={"export_id": str(export_id)})
 
     async def download_export(self, export_id: UUID, organization_id: UUID) -> bytes:
-        export = await self.repo.get_by_id(export_id)
-        if not export or export.organization_id != organization_id or export.is_deleted:
+        export = await self.repo.get_by_id(export_id, organization_id)
+        if not export or export.is_deleted:
             raise ResourceNotFoundException("Export not found")
 
         if export.status != ExportStatus.COMPLETED or not export.file_path:

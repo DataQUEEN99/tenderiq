@@ -30,6 +30,11 @@ class BusinessRuleViolationException(TenderIQException):
         super().__init__(message, "BUSINESS_RULE_VIOLATION")
 
 
+class ConflictException(TenderIQException):
+    def __init__(self, message: str):
+        super().__init__(message, "CONFLICT")
+
+
 class AIProcessingException(TenderIQException):
     def __init__(self, message: str):
         super().__init__(message, "AI_PROCESSING_ERROR")

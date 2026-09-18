@@ -58,7 +58,10 @@ app.include_router(api_router, prefix=settings.api_prefix)
 
 @app.on_event("startup")
 async def startup():
-    """Run database migrations on startup."""
+    """Run database migrations on startup.
+
+    Migration failure must never let the API start against an incompatible database.
+    """
     import sys
     import os
     import subprocess
@@ -71,8 +74,10 @@ async def startup():
     ], cwd=backend_dir, capture_output=True, text=True)
 
     if result.returncode != 0:
-        print(f"Migration failed on startup: {result.stderr}")
-        # Don't fail startup, just log the error
+        error_msg = f"Migration failed on startup: {result.stderr}"
+        print(error_msg, file=sys.stderr)
+        # Fail application startup - do not run against incompatible database
+        raise RuntimeError(error_msg)
     else:
         print("Database migrations completed on startup")
 

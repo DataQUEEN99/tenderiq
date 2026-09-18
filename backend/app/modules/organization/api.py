@@ -46,7 +46,7 @@ async def get_organization(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_READ)),
 ):
-    _verify_tenant_access(current_user, org_id)
+    _verify_tenant_access(current_user, organization_id)
     service = OrganizationService(db)
     return await service.get_by_id(organization_id)
 
@@ -58,7 +58,7 @@ async def update_organization(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_UPDATE)),
 ):
-    _verify_tenant_access(current_user, org_id)
+    _verify_tenant_access(current_user, organization_id)
     service = OrganizationService(db)
     return await service.update(organization_id, request)
 
@@ -70,7 +70,7 @@ async def update_organization_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_UPDATE)),
 ):
-    _verify_tenant_access(current_user, org_id)
+    _verify_tenant_access(current_user, organization_id)
     service = OrganizationService(db)
     return await service.update_status(organization_id, request)
 
@@ -93,6 +93,6 @@ async def delete_organization(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.ORG_DELETE)),
 ):
-    _verify_tenant_access(current_user, org_id)
+    _verify_tenant_access(current_user, organization_id)
     service = OrganizationService(db)
     await service.soft_delete(organization_id)

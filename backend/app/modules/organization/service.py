@@ -1,5 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import UUID
+import re
+import uuid
 from app.modules.organization.repository import OrganizationRepository
 from app.modules.organization.models import Organization, OrganizationStatus
 from app.modules.organization.schemas import OrganizationCreate, OrganizationUpdate, OrganizationStatusUpdate, OrganizationResponse
@@ -73,3 +75,32 @@ class OrganizationService:
         organization.status = OrganizationStatus.DISABLED
         await self.repo.update(organization)
         app_logger.info(f"Organization soft deleted", extra={"organization_id": str(org_id)})
+
+    async def create_organization(self, name: str, slug: str = None) -> Organization:
+        """
+        Create a new organization with the given name and optional slug.
+        If slug is not provided, generates one from the name.
+        Returns the Organization model (not the response schema).
+        """
+        if slug is None:
+            slug = re.sub(r'[^a-zA-Z0-9]', '-', name.lower()).strip('-')
+
+        # Check slug uniqueness
+        existing = await self.repo.get_by_slug(slug)
+        if existing:
+            slug = f"{slug}-{uuid.uuid4().hex[:8]}"
+
+        # Check name uniqueness
+        existing = await self.repo.get_by_name(name)
+        if existing:
+            raise ValidationException("Organization name already exists")
+
+        organization = Organization(
+            name=name,
+            slug=slug,
+            status=OrganizationStatus.ACTIVE,
+            is_deleted=False
+        )
+        organization = await self.repo.create(organization)
+        app_logger.info(f"Organization created", extra={"organization_id": str(organization.organization_id)})
+        return organization

@@ -37,7 +37,7 @@ async def upload_document(
 
     return await service.upload(
         organization_id=current_user.organization_id,
-        uploaded_by=current_user.id,
+        uploaded_by=current_user.user_id,
         file_content=file_content,
         original_filename=file.filename,
         mime_type=mime_type,
@@ -72,35 +72,8 @@ async def get_document_progress(
     current_user: User = Depends(require_permission(Permission.DOC_READ)),
 ):
     """Get real-time processing progress for a document."""
-    from app.modules.document.repository import DocumentProcessingRepository
-    from app.modules.document.models import Document
-
-    # Verify document exists and belongs to user's org
-    doc = await db.get(Document, document_id)
-    if not doc or doc.organization_id != current_user.organization_id or doc.is_deleted:
-        raise ValidationException("Document not found")
-
-    # Get processing record
-    proc_repo = DocumentProcessingRepository(db)
-    processing = await proc_repo.get_by_document_id(document_id)
-
-    if not processing:
-        return DocumentProgressResponse(
-            document_id=str(document_id),
-            stage="pending",
-            status="pending",
-            progress=0
-        )
-
-    return DocumentProgressResponse(
-        document_id=str(document_id),
-        stage=processing.stage,
-        status=processing.status,
-        progress=processing.progress,
-        error_message=processing.error_message,
-        started_at=processing.started_at,
-        completed_at=processing.completed_at
-    )
+    service = DocumentService(db)
+    return await service.get_progress(document_id, current_user.organization_id)
 
 
 @router.post("/{document_id}/reprocess", response_model=DocumentResponse)
@@ -182,12 +155,10 @@ async def search_documents(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.DOC_READ)),
 ):
-    from app.ai.facade import AIFacade
-    facade = AIFacade()
-    results = await facade.search_documents(
+    service = DocumentService(db)
+    return await service.search_documents(
         organization_id=current_user.organization_id,
         query=request.query,
         document_type=request.document_type,
         top_k=request.page_size
     )
-    return results
