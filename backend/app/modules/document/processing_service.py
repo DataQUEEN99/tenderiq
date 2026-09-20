@@ -170,7 +170,7 @@ async def process_document_background(document_id: UUID, organization_id: UUID):
 
     async with async_session_maker() as session:
         uow = UnitOfWork(session)
-        async with uow.begin():
+        async with uow:
             pipeline = DocumentProcessingPipeline(session)
             return await pipeline.process_document(document_id, organization_id)
         # Transaction committed automatically on success

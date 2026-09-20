@@ -40,8 +40,6 @@ class Settings(BaseSettings):
     chroma_port: int = int(os.getenv("CHROMA_PORT", "8000"))
     chromadb_path: str = os.getenv("CHROMADB_PATH", "./chroma_db")
     chromadb_collection: str = os.getenv("CHROMA_COLLECTION_NAME", "tenderiq_documents")
-    vector_store_path: str = "./data/vectorstore"
-    vector_store_type: str = "chromadb"
     top_k: int = 5
     similarity_threshold: float = 0.7
 

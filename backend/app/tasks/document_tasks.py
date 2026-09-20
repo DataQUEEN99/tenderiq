@@ -42,7 +42,7 @@ def process_document(self, document_id: str, organization_id: str):
     async def _process():
         async with async_session_maker() as session:
             uow = UnitOfWork(session)
-            async with uow.begin():
+            async with uow:
                 # Import here to avoid circular imports
                 from app.modules.document.processing_service import DocumentProcessingPipeline
 
@@ -88,7 +88,7 @@ def reprocess_document(self, document_id: str, organization_id: str):
     async def _reprocess():
         async with async_session_maker() as session:
             uow = UnitOfWork(session)
-            async with uow.begin():
+            async with uow:
                 from app.modules.document.processing_service import DocumentProcessingPipeline
 
                 pipeline = DocumentProcessingPipeline(session)
@@ -126,7 +126,7 @@ def cleanup_failed_documents():
     async def _cleanup():
         async with async_session_maker() as session:
             uow = UnitOfWork(session)
-            async with uow.begin():
+            async with uow:
                 from app.modules.document.repository import DocumentRepository
                 from app.modules.document.models import Document, DocumentStatus
                 from datetime import datetime, timedelta, timezone

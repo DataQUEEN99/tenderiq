@@ -6,7 +6,8 @@ from app.modules.tender.ai_repositories import (
     ComplianceMatrixRepository, DocumentContentRepository,
     DocumentProcessingRepository
 )
-from app.modules.tender.models import TenderSummary, EligibilityAnalysis, ComplianceMatrix, Tender
+from app.modules.tender.models import TenderSummary, EligibilityAnalysis, Tender
+from app.modules.proposal.models import ComplianceMatrix
 from app.modules.document.models import DocumentContent, DocumentProcessing, DocumentStatus
 from app.shared.exceptions.custom_exceptions import ResourceNotFoundException, ValidationException
 from app.shared.logging.logger import app_logger
@@ -19,7 +20,8 @@ class TenderSummaryService:
 
     async def create_summary(self, organization_id: UUID, tender_id: UUID, summary_type: str,
                              summary_text: str, generation_model: str = None,
-                             generation_prompt: str = None) -> TenderSummary:
+                             prompt_hash: str = None, tokens_used: int = None,
+                             generation_latency_ms: int = None) -> TenderSummary:
         # Verify tender exists and belongs to organization
         from app.modules.tender.service import TenderService
         tender_service = TenderService(self.session)
@@ -33,7 +35,9 @@ class TenderSummaryService:
             summary_type=summary_type,
             summary_text=summary_text,
             generation_model=generation_model,
-            generation_prompt=generation_prompt,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
         )
         app_logger.info(f"Tender summary created/updated", extra={
             "tender_id": str(tender_id),
@@ -42,10 +46,7 @@ class TenderSummaryService:
         return summary
 
     async def get_summary(self, organization_id: UUID, tender_id: UUID) -> Optional[TenderSummary]:
-        summary = await self.repo.get_by_tender_id(tender_id)
-        if summary and summary.organization_id != organization_id:
-            return None
-        return summary
+        return await self.repo.get_by_tender_id(tender_id, organization_id)
 
     async def list_summaries(self, organization_id: UUID, page: int = 1,
                              page_size: int = 20) -> Tuple[List[TenderSummary], int]:
@@ -61,7 +62,8 @@ class EligibilityAnalysisService:
                               company_profile_id: UUID, overall_eligible: bool,
                               eligibility_score: int = None,
                               criteria_results: list = None, missing_requirements: list = None,
-                              generation_model: str = None, generation_prompt: str = None) -> EligibilityAnalysis:
+                              generation_model: str = None, prompt_hash: str = None,
+                              tokens_used: int = None, generation_latency_ms: int = None) -> EligibilityAnalysis:
         # Verify tender exists and belongs to organization
         from app.modules.tender.service import TenderService
         tender_service = TenderService(self.session)
@@ -85,7 +87,9 @@ class EligibilityAnalysisService:
             criteria_results=criteria_results,
             missing_requirements=missing_requirements,
             generation_model=generation_model,
-            generation_prompt=generation_prompt,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
         )
         app_logger.info(f"Eligibility analysis created/updated", extra={
             "tender_id": str(tender_id),
@@ -94,10 +98,7 @@ class EligibilityAnalysisService:
         return analysis
 
     async def get_analysis(self, organization_id: UUID, tender_id: UUID) -> Optional[EligibilityAnalysis]:
-        analysis = await self.repo.get_by_tender_id(tender_id)
-        if analysis and analysis.organization_id != organization_id:
-            return None
-        return analysis
+        return await self.repo.get_by_tender_id(tender_id, organization_id)
 
     async def list_analyses(self, organization_id: UUID, page: int = 1,
                             page_size: int = 20) -> Tuple[List[EligibilityAnalysis], int]:
@@ -114,7 +115,8 @@ class ComplianceMatrixService:
                             requirement_results: list,
                             mandatory_met: int = 0, mandatory_total: int = 0,
                             desirable_met: int = 0, desirable_total: int = 0,
-                            generation_model: str = None, generation_prompt: str = None) -> ComplianceMatrix:
+                            generation_model: str = None, prompt_hash: str = None,
+                            tokens_used: int = None, generation_latency_ms: int = None) -> ComplianceMatrix:
         # Verify tender exists and belongs to organization
         from app.modules.tender.service import TenderService
         tender_service = TenderService(self.session)
@@ -144,7 +146,9 @@ class ComplianceMatrixService:
             desirable_met=desirable_met,
             desirable_total=desirable_total,
             generation_model=generation_model,
-            generation_prompt=generation_prompt,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
         )
         app_logger.info(f"Compliance matrix created/updated", extra={
             "tender_id": str(tender_id),
@@ -154,10 +158,10 @@ class ComplianceMatrixService:
         return matrix
 
     async def get_matrix(self, organization_id: UUID, tender_id: UUID) -> Optional[ComplianceMatrix]:
-        matrix = await self.repo.get_by_tender_id(tender_id)
-        if matrix and matrix.organization_id != organization_id:
-            return None
-        return matrix
+        return await self.repo.get_by_tender_id(tender_id, organization_id)
+
+    async def get_matrix_by_proposal_id(self, organization_id: UUID, proposal_id: UUID) -> Optional[ComplianceMatrix]:
+        return await self.repo.get_by_proposal_id(proposal_id, organization_id)
 
     async def list_matrices(self, organization_id: UUID, page: int = 1,
                             page_size: int = 20) -> Tuple[List[ComplianceMatrix], int]:
@@ -195,7 +199,7 @@ class DocumentContentService:
         document = await doc_service.get_by_id(document_id, organization_id)
         if not document:
             return None
-        return await self.repo.get_by_document_id(document_id)
+        return await self.repo.get_by_document_id(document_id, organization_id)
 
 
 class DocumentProcessingService:
@@ -293,4 +297,4 @@ class DocumentProcessingService:
         document = await doc_service.get_by_id(document_id, organization_id)
         if not document:
             return None
-        return await self.repo.get_by_document_id(document_id)
+        return await self.repo.get_by_document_id(document_id, organization_id)

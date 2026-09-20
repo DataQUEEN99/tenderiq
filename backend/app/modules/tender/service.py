@@ -4,6 +4,7 @@ from typing import List, Tuple, Optional
 from app.modules.tender.repository import TenderRepository
 from app.modules.tender.models import Tender, TenderStatus, TenderDocument
 from app.modules.tender.schemas import TenderCreate, TenderUpdate, TenderStatusUpdate, TenderResponse, TenderDetailResponse
+from app.modules.tender.ai_services import TenderSummaryService, EligibilityAnalysisService, ComplianceMatrixService
 from app.modules.document.models import Document
 from app.shared.exceptions.custom_exceptions import ValidationException, ResourceNotFoundException, BusinessRuleViolationException
 from app.shared.logging.logger import app_logger
@@ -146,3 +147,104 @@ class TenderService:
 
         await self.repo.soft_delete(tender_id, organization_id)
         app_logger.info(f"Tender deleted", extra={"tender_id": str(tender_id)})
+
+    # TenderSummary delegation
+    async def create_summary(self, organization_id: UUID, tender_id: UUID,
+                             summary_type: str, summary_text: str,
+                             model_used: str = None, prompt_hash: str = None,
+                             tokens_used: int = None, generation_latency_ms: int = None,
+                             source_document_ids: list = None) -> 'TenderSummaryResponse':
+        """Delegate to TenderSummaryService."""
+        from app.modules.tender.schemas import TenderSummaryResponse
+        service = TenderSummaryService(self.session)
+        summary = await service.create_summary(
+            organization_id=organization_id,
+            tender_id=tender_id,
+            summary_type=summary_type,
+            summary_text=summary_text,
+            generation_model=model_used,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
+        )
+        return TenderSummaryResponse.model_validate(summary)
+
+    async def get_summary(self, organization_id: UUID, tender_id: UUID) -> 'TenderSummaryResponse':
+        """Delegate to TenderSummaryService."""
+        from app.modules.tender.schemas import TenderSummaryResponse
+        service = TenderSummaryService(self.session)
+        summary = await service.get_summary(organization_id, tender_id)
+        if not summary:
+            raise ResourceNotFoundException("Tender summary not found")
+        return TenderSummaryResponse.model_validate(summary)
+
+    # EligibilityAnalysis delegation
+    async def create_eligibility_analysis(self, organization_id: UUID, tender_id: UUID,
+                                          company_profile_id: UUID, overall_eligible: bool,
+                                          eligibility_score: int = None,
+                                          criteria_results: list = None, missing_requirements: list = None,
+                                          model_used: str = None, prompt_hash: str = None,
+                                          tokens_used: int = None, generation_latency_ms: int = None) -> 'EligibilityAnalysisResponse':
+        """Delegate to EligibilityAnalysisService."""
+        from app.modules.tender.schemas import EligibilityAnalysisResponse
+        service = EligibilityAnalysisService(self.session)
+        analysis = await service.create_analysis(
+            organization_id=organization_id,
+            tender_id=tender_id,
+            company_profile_id=company_profile_id,
+            overall_eligible=overall_eligible,
+            eligibility_score=eligibility_score,
+            criteria_results=criteria_results,
+            missing_requirements=missing_requirements,
+            generation_model=model_used,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
+        )
+        return EligibilityAnalysisResponse.model_validate(analysis)
+
+    async def get_eligibility_analysis(self, organization_id: UUID, tender_id: UUID) -> 'EligibilityAnalysisResponse':
+        """Delegate to EligibilityAnalysisService."""
+        from app.modules.tender.schemas import EligibilityAnalysisResponse
+        service = EligibilityAnalysisService(self.session)
+        analysis = await service.get_analysis(organization_id, tender_id)
+        if not analysis:
+            raise ResourceNotFoundException("Eligibility analysis not found")
+        return EligibilityAnalysisResponse.model_validate(analysis)
+
+    # ComplianceMatrix delegation
+    async def create_compliance_matrix(self, organization_id: UUID, tender_id: UUID,
+                                       proposal_id: UUID, overall_compliance_score: int,
+                                       mandatory_met: int = 0, mandatory_total: int = 0,
+                                       desirable_met: int = 0, desirable_total: int = 0,
+                                       requirement_results: list = None,
+                                       model_used: str = None, prompt_hash: str = None,
+                                       tokens_used: int = None, generation_latency_ms: int = None) -> 'ComplianceMatrixResponse':
+        """Delegate to ComplianceMatrixService."""
+        from app.modules.tender.schemas import ComplianceMatrixResponse
+        service = ComplianceMatrixService(self.session)
+        matrix = await service.create_matrix(
+            organization_id=organization_id,
+            tender_id=tender_id,
+            proposal_id=proposal_id,
+            overall_compliance_score=overall_compliance_score,
+            requirement_results=requirement_results,
+            mandatory_met=mandatory_met,
+            mandatory_total=mandatory_total,
+            desirable_met=desirable_met,
+            desirable_total=desirable_total,
+            generation_model=model_used,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
+        )
+        return ComplianceMatrixResponse.model_validate(matrix)
+
+    async def get_compliance_matrix(self, organization_id: UUID, tender_id: UUID) -> 'ComplianceMatrixResponse':
+        """Delegate to ComplianceMatrixService."""
+        from app.modules.tender.schemas import ComplianceMatrixResponse
+        service = ComplianceMatrixService(self.session)
+        matrix = await service.get_matrix(organization_id, tender_id)
+        if not matrix:
+            raise ResourceNotFoundException("Compliance matrix not found")
+        return ComplianceMatrixResponse.model_validate(matrix)

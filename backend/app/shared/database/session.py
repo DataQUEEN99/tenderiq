@@ -39,7 +39,7 @@ async def get_db() -> AsyncSession:
     Commits on success, rolls back on exception."""
     async with async_session_maker() as session:
         uow = UnitOfWork(session)
-        async with uow.begin() as uow:
+        async with uow:
             try:
                 yield session
                 # Commit happens automatically in UnitOfWork.__aexit__ on success

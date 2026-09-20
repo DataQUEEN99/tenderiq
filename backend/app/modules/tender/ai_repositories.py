@@ -2,7 +2,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, List, Tuple
-from app.modules.tender.models import TenderSummary, EligibilityAnalysis, ComplianceMatrix
+from app.modules.tender.models import TenderSummary, EligibilityAnalysis
+from app.modules.proposal.models import ComplianceMatrix
 from app.modules.document.models import DocumentContent, DocumentProcessing, DocumentStatus
 from app.shared.database.base import BaseModel
 from app.shared.utils.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
@@ -12,16 +13,18 @@ class TenderSummaryRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_tender_id(self, tender_id: UUID) -> Optional[TenderSummary]:
-        result = await self.session.execute(
-            select(TenderSummary).where(TenderSummary.tender_id == tender_id)
-        )
+    async def get_by_tender_id(self, tender_id: UUID, organization_id: UUID = None) -> Optional[TenderSummary]:
+        query = select(TenderSummary).where(TenderSummary.tender_id == tender_id)
+        if organization_id is not None:
+            query = query.where(TenderSummary.organization_id == organization_id)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_id(self, summary_id: UUID) -> Optional[TenderSummary]:
-        result = await self.session.execute(
-            select(TenderSummary).where(TenderSummary.tender_summary_id == summary_id)
-        )
+    async def get_by_id(self, summary_id: UUID, organization_id: UUID = None) -> Optional[TenderSummary]:
+        query = select(TenderSummary).where(TenderSummary.tender_summary_id == summary_id)
+        if organization_id is not None:
+            query = query.where(TenderSummary.organization_id == organization_id)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def create(self, summary: TenderSummary) -> TenderSummary:
@@ -36,17 +39,22 @@ class TenderSummaryRepository:
         return summary
 
     async def upsert(self, organization_id: UUID, tender_id: UUID, summary_type: str,
-                     summary_text: str, generation_model: str = None, generation_prompt: str = None,
+                     summary_text: str, generation_model: str = None, prompt_hash: str = None,
+                     tokens_used: int = None, generation_latency_ms: int = None,
                      metadata: dict = None) -> TenderSummary:
-        existing = await self.get_by_tender_id(tender_id)
+        existing = await self.get_by_tender_id(tender_id, organization_id)
         if existing:
             existing.summary_type = summary_type
             existing.summary_text = summary_text
             existing.version += 1
             if generation_model:
                 existing.model_used = generation_model
-            if generation_prompt:
-                existing.generation_prompt = generation_prompt
+            if prompt_hash:
+                existing.prompt_hash = prompt_hash
+            if tokens_used is not None:
+                existing.tokens_used = tokens_used
+            if generation_latency_ms is not None:
+                existing.generation_latency_ms = generation_latency_ms
             return await self.update(existing)
 
         summary = TenderSummary(
@@ -56,7 +64,9 @@ class TenderSummaryRepository:
             summary_text=summary_text,
             version=1,
             model_used=generation_model,
-            generation_prompt=generation_prompt,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
         )
         return await self.create(summary)
 
@@ -94,16 +104,18 @@ class EligibilityAnalysisRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_tender_id(self, tender_id: UUID) -> Optional[EligibilityAnalysis]:
-        result = await self.session.execute(
-            select(EligibilityAnalysis).where(EligibilityAnalysis.tender_id == tender_id)
-        )
+    async def get_by_tender_id(self, tender_id: UUID, organization_id: UUID = None) -> Optional[EligibilityAnalysis]:
+        query = select(EligibilityAnalysis).where(EligibilityAnalysis.tender_id == tender_id)
+        if organization_id is not None:
+            query = query.where(EligibilityAnalysis.organization_id == organization_id)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_id(self, analysis_id: UUID) -> Optional[EligibilityAnalysis]:
-        result = await self.session.execute(
-            select(EligibilityAnalysis).where(EligibilityAnalysis.eligibility_analysis_id == analysis_id)
-        )
+    async def get_by_id(self, analysis_id: UUID, organization_id: UUID = None) -> Optional[EligibilityAnalysis]:
+        query = select(EligibilityAnalysis).where(EligibilityAnalysis.eligibility_analysis_id == analysis_id)
+        if organization_id is not None:
+            query = query.where(EligibilityAnalysis.organization_id == organization_id)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def create(self, analysis: EligibilityAnalysis) -> EligibilityAnalysis:
@@ -120,9 +132,10 @@ class EligibilityAnalysisRepository:
     async def upsert(self, organization_id: UUID, tender_id: UUID, company_profile_id: UUID,
                      overall_eligible: bool, eligibility_score: int = None,
                      criteria_results: list = None, missing_requirements: list = None,
-                     generation_model: str = None, generation_prompt: str = None,
+                     generation_model: str = None, prompt_hash: str = None,
+                     tokens_used: int = None, generation_latency_ms: int = None,
                      metadata: dict = None) -> EligibilityAnalysis:
-        existing = await self.get_by_tender_id(tender_id)
+        existing = await self.get_by_tender_id(tender_id, organization_id)
         if existing:
             existing.overall_eligible = overall_eligible
             if eligibility_score is not None:
@@ -134,8 +147,12 @@ class EligibilityAnalysisRepository:
             existing.version += 1
             if generation_model:
                 existing.model_used = generation_model
-            if generation_prompt:
-                existing.generation_prompt = generation_prompt
+            if prompt_hash:
+                existing.prompt_hash = prompt_hash
+            if tokens_used is not None:
+                existing.tokens_used = tokens_used
+            if generation_latency_ms is not None:
+                existing.generation_latency_ms = generation_latency_ms
             return await self.update(existing)
 
         analysis = EligibilityAnalysis(
@@ -148,7 +165,9 @@ class EligibilityAnalysisRepository:
             missing_requirements=missing_requirements,
             version=1,
             model_used=generation_model,
-            generation_prompt=generation_prompt,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
         )
         return await self.create(analysis)
 
@@ -186,22 +205,25 @@ class ComplianceMatrixRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_tender_id(self, tender_id: UUID) -> Optional[ComplianceMatrix]:
-        result = await self.session.execute(
-            select(ComplianceMatrix).where(ComplianceMatrix.tender_id == tender_id)
-        )
+    async def get_by_tender_id(self, tender_id: UUID, organization_id: UUID = None) -> Optional[ComplianceMatrix]:
+        query = select(ComplianceMatrix).where(ComplianceMatrix.tender_id == tender_id)
+        if organization_id is not None:
+            query = query.where(ComplianceMatrix.organization_id == organization_id)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_proposal_id(self, proposal_id: UUID) -> Optional[ComplianceMatrix]:
-        result = await self.session.execute(
-            select(ComplianceMatrix).where(ComplianceMatrix.proposal_id == proposal_id)
-        )
+    async def get_by_proposal_id(self, proposal_id: UUID, organization_id: UUID = None) -> Optional[ComplianceMatrix]:
+        query = select(ComplianceMatrix).where(ComplianceMatrix.proposal_id == proposal_id)
+        if organization_id is not None:
+            query = query.where(ComplianceMatrix.organization_id == organization_id)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_id(self, matrix_id: UUID) -> Optional[ComplianceMatrix]:
-        result = await self.session.execute(
-            select(ComplianceMatrix).where(ComplianceMatrix.compliance_matrix_id == matrix_id)
-        )
+    async def get_by_id(self, matrix_id: UUID, organization_id: UUID = None) -> Optional[ComplianceMatrix]:
+        query = select(ComplianceMatrix).where(ComplianceMatrix.compliance_matrix_id == matrix_id)
+        if organization_id is not None:
+            query = query.where(ComplianceMatrix.organization_id == organization_id)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def create(self, matrix: ComplianceMatrix) -> ComplianceMatrix:
@@ -219,9 +241,10 @@ class ComplianceMatrixRepository:
                      overall_compliance_score: int, requirement_results: list,
                      mandatory_met: int = 0, mandatory_total: int = 0,
                      desirable_met: int = 0, desirable_total: int = 0,
-                     generation_model: str = None, generation_prompt: str = None,
+                     generation_model: str = None, prompt_hash: str = None,
+                     tokens_used: int = None, generation_latency_ms: int = None,
                      metadata: dict = None) -> ComplianceMatrix:
-        existing = await self.get_by_tender_id(tender_id)
+        existing = await self.get_by_tender_id(tender_id, organization_id)
         if existing:
             existing.overall_compliance_score = overall_compliance_score
             existing.requirement_results = requirement_results
@@ -232,8 +255,12 @@ class ComplianceMatrixRepository:
             existing.version += 1
             if generation_model:
                 existing.model_used = generation_model
-            if generation_prompt:
-                existing.generation_prompt = generation_prompt
+            if prompt_hash:
+                existing.prompt_hash = prompt_hash
+            if tokens_used is not None:
+                existing.tokens_used = tokens_used
+            if generation_latency_ms is not None:
+                existing.generation_latency_ms = generation_latency_ms
             return await self.update(existing)
 
         matrix = ComplianceMatrix(
@@ -248,7 +275,9 @@ class ComplianceMatrixRepository:
             desirable_total=desirable_total,
             version=1,
             model_used=generation_model,
-            generation_prompt=generation_prompt,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
         )
         return await self.create(matrix)
 

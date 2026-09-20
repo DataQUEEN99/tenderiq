@@ -46,7 +46,13 @@ class ProposalRepository(TenantRepository[Proposal]):
         await self.session.refresh(section)
         return section
 
-    async def get_sections(self, proposal_id: UUID) -> List[ProposalSection]:
+    async def get_sections(self, proposal_id: UUID, organization_id: UUID) -> List[ProposalSection]:
+        """Get all sections for a proposal with tenant isolation."""
+        # Verify proposal belongs to organization
+        proposal = await self.get_by_id(proposal_id, organization_id)
+        if not proposal:
+            return []
+
         result = await self.session.execute(
             select(ProposalSection).where(
                 and_(ProposalSection.proposal_id == proposal_id, ProposalSection.is_deleted == False)
@@ -54,44 +60,13 @@ class ProposalRepository(TenantRepository[Proposal]):
         )
         return result.scalars().all()
 
-    async def get_proposal_sections(self, proposal_id: UUID) -> List[ProposalSection]:
-        return await self.get_sections(proposal_id)
+    async def get_section_by_id(self, section_id: UUID, proposal_id: UUID, organization_id: UUID) -> Optional[ProposalSection]:
+        """Get section by ID with tenant isolation through proposal."""
+        # Verify proposal belongs to organization
+        proposal = await self.get_by_id(proposal_id, organization_id)
+        if not proposal:
+            return None
 
-    async def get_section_by_id(self, section_id: UUID, proposal_id: UUID) -> Optional[ProposalSection]:
-        result = await self.session.execute(
-            select(ProposalSection).where(
-                and_(ProposalSection.proposal_section_id == section_id, ProposalSection.proposal_id == proposal_id, ProposalSection.is_deleted == False)
-            )
-        )
-        return result.scalar_one_or_none()
-
-    async def get_section_by_type(self, proposal_id: UUID, section_type: str) -> Optional[ProposalSection]:
-        result = await self.session.execute(
-            select(ProposalSection).where(
-                and_(ProposalSection.proposal_id == proposal_id, ProposalSection.section_type == section_type, ProposalSection.is_deleted == False)
-            )
-        )
-        return result.scalar_one_or_none()
-
-    async def update_section(self, section: ProposalSection) -> ProposalSection:
-        await self.session.flush()
-        await self.session.refresh(section)
-        return section
-
-    async def delete_section(self, section_id: UUID, proposal_id: UUID) -> bool:
-        result = await self.session.execute(
-            select(ProposalSection).where(
-                and_(ProposalSection.proposal_section_id == section_id, ProposalSection.proposal_id == proposal_id)
-            )
-        )
-        section = result.scalar_one_or_none()
-        if section:
-            await self.session.delete(section)
-            await self.session.flush()
-            return True
-        return False
-
-    async def get_section_by_id(self, section_id: UUID, proposal_id: UUID) -> Optional[ProposalSection]:
         result = await self.session.execute(
             select(ProposalSection).where(
                 and_(
@@ -102,6 +77,40 @@ class ProposalRepository(TenantRepository[Proposal]):
             )
         )
         return result.scalar_one_or_none()
+
+    async def update_section(self, section: ProposalSection, organization_id: UUID) -> ProposalSection:
+        """Update section with tenant isolation verification."""
+        # Verify the section's proposal belongs to the organization
+        if section.proposal_id:
+            proposal = await self.get_by_id(section.proposal_id, organization_id)
+            if not proposal:
+                raise ValueError("Section's proposal not found in this organization")
+
+        await self.session.flush()
+        await self.session.refresh(section)
+        return section
+
+    async def delete_section(self, section_id: UUID, proposal_id: UUID, organization_id: UUID) -> bool:
+        """Delete section with tenant isolation."""
+        # Verify proposal belongs to organization
+        proposal = await self.get_by_id(proposal_id, organization_id)
+        if not proposal:
+            return False
+
+        result = await self.session.execute(
+            select(ProposalSection).where(
+                and_(
+                    ProposalSection.proposal_section_id == section_id,
+                    ProposalSection.proposal_id == proposal_id
+                )
+            )
+        )
+        section = result.scalar_one_or_none()
+        if section:
+            await self.session.delete(section)
+            await self.session.flush()
+            return True
+        return False
 
     async def attach_documents(self, proposal_id: UUID, organization_id: UUID, document_ids: List[UUID]) -> List[ProposalDocument]:
         # Verify proposal belongs to organization

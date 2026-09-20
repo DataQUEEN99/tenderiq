@@ -136,7 +136,7 @@ class ProposalService:
         if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
-        section = await self.repo.get_section_by_id(section_id, proposal_id)
+        section = await self.repo.get_section_by_id(section_id, proposal_id, organization_id)
         if not section:
             raise ResourceNotFoundException("Section not found")
 
@@ -149,7 +149,7 @@ class ProposalService:
         if request.section_type:
             section.section_type = request.section_type
 
-        section = await self.repo.update_section(section)
+        section = await self.repo.update_section(section, organization_id)
         return ProposalSectionCreate.model_validate(section)
 
     async def delete_section(self, proposal_id: UUID, organization_id: UUID, section_id: UUID) -> None:
@@ -157,7 +157,7 @@ class ProposalService:
         if not proposal or proposal.is_deleted:
             raise ResourceNotFoundException("Proposal not found")
 
-        success = await self.repo.delete_section(section_id, proposal_id)
+        success = await self.repo.delete_section(section_id, proposal_id, organization_id)
         if not success:
             raise ResourceNotFoundException("Section not found")
 
@@ -180,7 +180,7 @@ class ProposalService:
                 section.content = sec_data.get("content")
                 section.is_generated = True
                 section.generation_prompt = f"AI generated for {sec_data.get('title')}"
-                await self.repo.update_section(section)
+                await self.repo.update_section(section, organization_id)
             else:
                 section = ProposalSection(
                     title=sec_data.get("title"),
@@ -231,3 +231,47 @@ class ProposalService:
 
         await self.repo.soft_delete(proposal_id, organization_id)
         app_logger.info(f"Proposal deleted", extra={"proposal_id": str(proposal_id)})
+
+    # ComplianceMatrix delegation
+    async def create_compliance_matrix(self, organization_id: UUID, proposal_id: UUID,
+                                       overall_compliance_score: int,
+                                       mandatory_met: int = 0, mandatory_total: int = 0,
+                                       desirable_met: int = 0, desirable_total: int = 0,
+                                       requirement_results: list = None,
+                                       model_used: str = None, prompt_hash: str = None,
+                                       tokens_used: int = None, generation_latency_ms: int = None) -> 'ComplianceMatrixResponse':
+        """Delegate to ComplianceMatrixService."""
+        from app.modules.tender.schemas import ComplianceMatrixResponse
+        from app.modules.tender.ai_services import ComplianceMatrixService
+        # Get the tender_id from the proposal
+        proposal = await self.repo.get_by_id(proposal_id, organization_id)
+        if not proposal or proposal.is_deleted:
+            raise ResourceNotFoundException("Proposal not found")
+
+        service = ComplianceMatrixService(self.session)
+        matrix = await service.create_matrix(
+            organization_id=organization_id,
+            tender_id=proposal.tender_id,
+            proposal_id=proposal_id,
+            overall_compliance_score=overall_compliance_score,
+            requirement_results=requirement_results,
+            mandatory_met=mandatory_met,
+            mandatory_total=mandatory_total,
+            desirable_met=desirable_met,
+            desirable_total=desirable_total,
+            generation_model=model_used,
+            prompt_hash=prompt_hash,
+            tokens_used=tokens_used,
+            generation_latency_ms=generation_latency_ms,
+        )
+        return ComplianceMatrixResponse.model_validate(matrix)
+
+    async def get_compliance_matrix(self, organization_id: UUID, proposal_id: UUID) -> 'ComplianceMatrixResponse':
+        """Delegate to ComplianceMatrixService."""
+        from app.modules.tender.schemas import ComplianceMatrixResponse
+        from app.modules.tender.ai_services import ComplianceMatrixService
+        service = ComplianceMatrixService(self.session)
+        matrix = await service.get_matrix_by_proposal_id(organization_id, proposal_id)
+        if not matrix:
+            raise ResourceNotFoundException("Compliance matrix not found")
+        return ComplianceMatrixResponse.model_validate(matrix)

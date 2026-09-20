@@ -12,13 +12,13 @@ from app.modules.tender.schemas import (
     EligibilityAnalysisCreate, EligibilityAnalysisResponse,
     ComplianceMatrixCreate, ComplianceMatrixResponse
 )
-from app.modules.tender.models import TenderSummary, EligibilityAnalysis, ComplianceMatrix
+from app.modules.tender.models import TenderSummary, EligibilityAnalysis
 from app.shared.security.auth_dependencies import require_permission
 from app.modules.authentication.models import User
 from app.shared.security.permissions import Permission
 from app.shared.exceptions.custom_exceptions import ResourceNotFoundException
 
-router = APIRouter(prefix="/tenders", tags=["Tenders - AI Outputs"])
+router = APIRouter(prefix="", tags=["Tenders - AI Outputs"])
 
 
 # Tender Summary endpoints
@@ -36,7 +36,9 @@ async def create_tender_summary(
         summary_type=request.summary_type,
         summary_text=request.summary_text,
         generation_model=request.model_used,
-        generation_prompt=request.generation_prompt,
+        prompt_hash=request.prompt_hash,
+        tokens_used=request.tokens_used,
+        generation_latency_ms=request.generation_latency_ms,
     )
 
 
@@ -55,7 +57,6 @@ async def get_tender_summary(
 
 @router.get("/{tender_id}/summaries", response_model=List[TenderSummaryResponse])
 async def list_tender_summaries(
-    organization_id: UUID,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -84,7 +85,9 @@ async def create_eligibility_analysis(
         criteria_results=request.criteria_results,
         missing_requirements=request.missing_requirements,
         generation_model=request.model_used,
-        generation_prompt=request.generation_prompt,
+        prompt_hash=request.prompt_hash,
+        tokens_used=request.tokens_used,
+        generation_latency_ms=request.generation_latency_ms,
     )
 
 
@@ -133,7 +136,9 @@ async def create_compliance_matrix(
         desirable_met=request.desirable_met,
         desirable_total=request.desirable_total,
         generation_model=request.model_used,
-        generation_prompt=request.generation_prompt,
+        prompt_hash=request.prompt_hash,
+        tokens_used=request.tokens_used,
+        generation_latency_ms=request.generation_latency_ms,
     )
 
 
