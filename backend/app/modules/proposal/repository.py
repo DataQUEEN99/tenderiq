@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import selectinload
 from typing import Optional, List, Tuple
 from app.modules.proposal.models import Proposal, ProposalStatus, ProposalSection, ProposalDocument
+from app.modules.document.models import Document
 from app.modules.tender.models import Tender
 from app.shared.database.base import BaseModel
 from app.shared.utils.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
@@ -120,6 +121,17 @@ class ProposalRepository(TenantRepository[Proposal]):
 
         links = []
         for doc_id in document_ids:
+            document = await self.session.execute(
+                select(Document).where(
+                    and_(
+                        Document.document_id == doc_id,
+                        Document.organization_id == organization_id,
+                        Document.is_deleted == False,
+                    )
+                )
+            )
+            if not document.scalar_one_or_none():
+                raise ValueError(f"Document {doc_id} not found or not accessible")
             link = ProposalDocument(proposal_id=proposal_id, document_id=doc_id)
             self.session.add(link)
             links.append(link)

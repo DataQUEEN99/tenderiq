@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import selectinload
 from typing import Optional, List, Tuple
 from app.modules.tender.models import Tender, TenderStatus, TenderDocument
+from app.modules.document.models import Document
 from app.shared.database.base import BaseModel
 from app.shared.utils.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from app.shared.database.tenant_repository import TenantRepository
@@ -106,6 +107,17 @@ class TenderRepository(TenantRepository[Tender]):
 
         links = []
         for doc_id in document_ids:
+            document = await self.session.execute(
+                select(Document).where(
+                    and_(
+                        Document.document_id == doc_id,
+                        Document.organization_id == organization_id,
+                        Document.is_deleted == False,
+                    )
+                )
+            )
+            if not document.scalar_one_or_none():
+                raise ValueError(f"Document {doc_id} not found or not accessible")
             link = TenderDocument(tender_id=tender_id, document_id=doc_id)
             self.session.add(link)
             links.append(link)

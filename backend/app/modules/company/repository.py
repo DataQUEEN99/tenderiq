@@ -3,6 +3,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, List
 from app.modules.company.models import CompanyProfile, CompanyDocument
+from app.modules.document.models import Document
 from app.shared.database.tenant_repository import TenantRepository
 from app.shared.utils.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 
@@ -42,7 +43,8 @@ class CompanyDocumentRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def attach_document(self, profile_id: UUID, organization_id: UUID, document_id: UUID, document_type: str = "primary") -> CompanyDocument:
+    async def attach_document(self, profile_id: UUID, organization_id: UUID, document_id: UUID,
+                              created_by: UUID, document_type: str = "primary") -> CompanyDocument:
         # Verify company profile belongs to organization
         profile = await self.session.execute(
             select(CompanyProfile).where(
@@ -56,10 +58,23 @@ class CompanyDocumentRepository:
         if not profile.scalar_one_or_none():
             raise ValueError("Company profile not found or not accessible")
 
+        document = await self.session.execute(
+            select(Document).where(
+                and_(
+                    Document.document_id == document_id,
+                    Document.organization_id == organization_id,
+                    Document.is_deleted == False,
+                )
+            )
+        )
+        if not document.scalar_one_or_none():
+            raise ValueError(f"Document {document_id} not found or not accessible")
+
         link = CompanyDocument(
             company_profile_id=profile_id,
             document_id=document_id,
-            relationship_type=document_type
+            relationship_type=document_type,
+            created_by=created_by,
         )
         self.session.add(link)
         await self.session.flush()

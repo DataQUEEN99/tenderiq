@@ -64,4 +64,4 @@ async def get_audit_log(
     current_user: User = Depends(require_permission(Permission.AUDIT_READ)),
 ):
     service = AuditService(db)
-    return await service.get_by_id(log_id)
+    return await service.get_by_id(log_id, current_user.organization_id)

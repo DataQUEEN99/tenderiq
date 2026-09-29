@@ -3,9 +3,9 @@ from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, List, Tuple, Dict, Any
 from app.modules.tender.ai_repositories import (
     TenderSummaryRepository, EligibilityAnalysisRepository,
-    ComplianceMatrixRepository, DocumentContentRepository,
-    DocumentProcessingRepository
+    ComplianceMatrixRepository
 )
+from app.modules.document.repository import DocumentContentRepository, DocumentProcessingRepository
 from app.modules.tender.models import TenderSummary, EligibilityAnalysis, Tender
 from app.modules.proposal.models import ComplianceMatrix
 from app.modules.document.models import DocumentContent, DocumentProcessing, DocumentStatus
@@ -185,10 +185,11 @@ class DocumentContentService:
 
         content = await self.repo.upsert(
             document_id=document_id,
-            text_content=text_content,
+            extracted_text=text_content,
             page_count=page_count,
-            char_count=char_count,
+            character_count=char_count,
             extraction_method=extraction_method,
+            organization_id=organization_id,
         )
         app_logger.info(f"Document content saved", extra={"document_id": str(document_id)})
         return content
@@ -217,8 +218,9 @@ class DocumentProcessingService:
         from datetime import datetime, timezone
         processing = await self.repo.upsert(
             document_id=document_id,
-            status=DocumentStatus.PROCESSING,
+            status="processing",
             started_at=datetime.now(timezone.utc),
+            organization_id=organization_id,
         )
         # Also update document status
         await doc_service.update_status(document_id, organization_id, DocumentStatus.PROCESSING)
@@ -238,8 +240,9 @@ class DocumentProcessingService:
         from datetime import datetime, timezone
         processing = await self.repo.upsert(
             document_id=document_id,
-            status=DocumentStatus.PROCESSED,
+            status="processed",
             completed_at=datetime.now(timezone.utc),
+            organization_id=organization_id,
         )
 
         # Also save content if provided
@@ -277,9 +280,10 @@ class DocumentProcessingService:
         from datetime import datetime, timezone
         processing = await self.repo.upsert(
             document_id=document_id,
-            status=DocumentStatus.FAILED,
+            status="failed",
             error_message=error_message,
             completed_at=datetime.now(timezone.utc),
+            organization_id=organization_id,
         )
 
         # Update document status

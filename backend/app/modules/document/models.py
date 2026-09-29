@@ -87,7 +87,7 @@ class DocumentProcessing(BaseModel):
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.document_id", ondelete="CASCADE"), nullable=False)
     stage = Column(String(30), nullable=False)
     status = Column(String(20), nullable=False, default="pending")
-    progress = Column(Integer, default=0)  # 0-100 percentage
+    progress = Column(Integer, nullable=False, default=0, server_default="0")  # 0-100 percentage
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     error_message = Column(Text, nullable=True)

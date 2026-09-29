@@ -52,7 +52,7 @@ async def attach_company_document(
     current_user: User = Depends(require_permission(Permission.COMPANY_DOC_UPLOAD)),
 ):
     service = CompanyService(db)
-    return await service.attach_document(current_user.organization_id, request)
+    return await service.attach_document(current_user.organization_id, current_user.user_id, request)
 
 
 @router.get("/documents", response_model=List[CompanyDocumentResponse])

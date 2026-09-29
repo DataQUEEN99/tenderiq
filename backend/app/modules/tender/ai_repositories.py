@@ -4,7 +4,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, List, Tuple
 from app.modules.tender.models import TenderSummary, EligibilityAnalysis
 from app.modules.proposal.models import ComplianceMatrix
-from app.modules.document.models import DocumentContent, DocumentProcessing, DocumentStatus
 from app.shared.database.base import BaseModel
 from app.shared.utils.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 
@@ -98,8 +97,6 @@ class TenderSummaryRepository:
         await self.session.delete(summary)
         await self.session.flush()
         return True
-
-
 class EligibilityAnalysisRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -309,103 +306,3 @@ class ComplianceMatrixRepository:
         await self.session.delete(matrix)
         await self.session.flush()
         return True
-
-
-class DocumentContentRepository:
-    def __init__(self, session: AsyncSession):
-        self.session = session
-
-    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentContent]:
-        result = await self.session.execute(
-            select(DocumentContent).where(DocumentContent.document_id == document_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def upsert(self, document_id: UUID, text_content: str,
-                     page_count: int = None, char_count: int = None,
-                     extraction_method: str = None, metadata: dict = None) -> DocumentContent:
-        existing = await self.get_by_document_id(document_id)
-        if existing:
-            existing.extracted_text = text_content
-            existing.extraction_status = "completed"
-            if page_count is not None:
-                existing.page_count = page_count
-            if char_count is not None:
-                existing.character_count = char_count
-            if extraction_method is not None:
-                existing.extraction_method = extraction_method
-            self.session.add(existing)
-            await self.session.flush()
-            await self.session.refresh(existing)
-            return existing
-
-        content = DocumentContent(
-            document_id=document_id,
-            extracted_text=text_content,
-            extraction_method=extraction_method or "native",
-            extraction_status="completed",
-            page_count=page_count,
-            character_count=char_count,
-        )
-        self.session.add(content)
-        await self.session.flush()
-        await self.session.refresh(content)
-        return content
-
-
-class DocumentProcessingRepository:
-    def __init__(self, session: AsyncSession):
-        self.session = session
-
-    async def get_by_document_id(self, document_id: UUID) -> Optional[DocumentProcessing]:
-        result = await self.session.execute(
-            select(DocumentProcessing).where(DocumentProcessing.document_id == document_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def upsert(self, document_id: UUID, status: DocumentStatus,
-                     error_message: str = None,
-                     started_at = None, completed_at = None) -> DocumentProcessing:
-        existing = await self.get_by_document_id(document_id)
-        if existing:
-            existing.status = status
-            if error_message is not None:
-                existing.error_message = error_message
-            if started_at is not None:
-                existing.started_at = started_at
-            if completed_at is not None:
-                existing.completed_at = completed_at
-            # Update stage based on status
-            if status == DocumentStatus.PROCESSING:
-                existing.stage = "extraction"
-            elif status == DocumentStatus.PROCESSED:
-                existing.stage = "completed"
-            elif status == DocumentStatus.FAILED:
-                existing.stage = "failed"
-            self.session.add(existing)
-            await self.session.flush()
-            await self.session.refresh(existing)
-            return existing
-
-        # Determine stage from status
-        if status == DocumentStatus.PROCESSING:
-            stage = "extraction"
-        elif status == DocumentStatus.PROCESSED:
-            stage = "completed"
-        elif status == DocumentStatus.FAILED:
-            stage = "failed"
-        else:
-            stage = "pending"
-
-        processing = DocumentProcessing(
-            document_id=document_id,
-            stage=stage,
-            status=status,
-            error_message=error_message,
-            started_at=started_at,
-            completed_at=completed_at,
-        )
-        self.session.add(processing)
-        await self.session.flush()
-        await self.session.refresh(processing)
-        return processing

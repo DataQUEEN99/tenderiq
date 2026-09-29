@@ -54,11 +54,18 @@ class CompanyService:
             return await self.update(organization_id, update_request)
         return await self.create(organization_id, request)
 
-    async def attach_document(self, organization_id: UUID, request: CompanyDocumentAttachRequest) -> CompanyDocumentResponse:
+    async def attach_document(self, organization_id: UUID, user_id: UUID,
+                              request: CompanyDocumentAttachRequest) -> CompanyDocumentResponse:
         profile = await self.repo.get_by_organization(organization_id)
         if not profile:
             raise ResourceNotFoundException("Company profile not found")
-        link = await self.doc_repo.attach_document(profile.company_profile_id, organization_id, UUID(request.document_id), request.document_type)
+        link = await self.doc_repo.attach_document(
+            profile.company_profile_id,
+            organization_id,
+            UUID(request.document_id),
+            user_id,
+            request.document_type,
+        )
         return CompanyDocumentResponse.model_validate(link)
 
     async def list_documents(self, organization_id: UUID) -> List[CompanyDocumentResponse]:

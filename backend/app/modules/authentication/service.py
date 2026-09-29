@@ -34,9 +34,9 @@ class AuthService:
         # Advisory lock key for bootstrap (fixed constant)
         BOOTSTRAP_LOCK_KEY = 987654321
 
-        # Try to acquire advisory lock (non-blocking)
+        # Try to acquire a transaction-scoped advisory lock (non-blocking)
         lock_result = await self.session.execute(
-            select(text("pg_try_advisory_lock(:key)")).params(key=BOOTSTRAP_LOCK_KEY)
+            select(text("pg_try_advisory_xact_lock(:key)")).params(key=BOOTSTRAP_LOCK_KEY)
         )
         lock_acquired = lock_result.scalar_one()
 
@@ -45,49 +45,42 @@ class AuthService:
             app_logger.warning("Bootstrap attempted but lock not acquired - another bootstrap in progress or completed")
             raise ConflictException("System bootstrap already in progress or completed")
 
-        try:
-            # Check if any admin already exists (inside the lock)
-            existing_admin = await self.repo.get_first_admin()
-            if existing_admin:
-                app_logger.info("Bootstrap requested but system already initialized", extra={
-                    "organization_id": str(existing_admin.organization_id),
-                    "admin_email": existing_admin.email
-                })
-                raise ConflictException("System already bootstrapped")
+        # Check if any admin already exists (inside the lock)
+        existing_admin = await self.repo.get_first_admin()
+        if existing_admin:
+            app_logger.info("Bootstrap requested but system already initialized", extra={
+                "organization_id": str(existing_admin.organization_id),
+                "admin_email": existing_admin.email
+            })
+            raise ConflictException("System already bootstrapped")
 
-            # Create the first organization via OrganizationService
-            org = await self.org_service.create_organization(
-                name=request.organization_name,
-                slug=request.organization_slug
-            )
+        # Create the first organization via OrganizationService
+        org = await self.org_service.create_organization(
+            name=request.organization_name,
+            slug=request.organization_slug
+        )
 
-            # Create root admin user
-            admin_user = User(
-                email=request.admin_email,
-                password_hash=hash_password(request.admin_password),
-                full_name=request.admin_full_name,
-                role=UserRole.ADMIN,
-                is_active=True,
-                organization_id=org.organization_id
-            )
-            admin_user = await self.repo.create(admin_user)
+        # Create root admin user
+        admin_user = User(
+            email=request.admin_email,
+            password_hash=hash_password(request.admin_password),
+            full_name=request.admin_full_name,
+            role=UserRole.ADMIN,
+            is_active=True,
+            organization_id=org.organization_id
+        )
+        admin_user = await self.repo.create(admin_user)
 
-            token = self.create_token(admin_user)
-            app_logger.info(f"System bootstrapped successfully", extra={"organization_id": str(org.organization_id), "admin_email": request.admin_email})
+        token = self.create_token(admin_user)
+        app_logger.info(f"System bootstrapped successfully", extra={"organization_id": str(org.organization_id), "admin_email": request.admin_email})
 
-            return BootstrapResponse(
-                message="System bootstrapped successfully",
-                organization_id=str(org.organization_id),
-                user_id=str(admin_user.user_id),
-                access_token=token,
-                token_type="bearer"
-            )
-        finally:
-            # Always release the advisory lock
-            await self.session.execute(
-                select(text("pg_advisory_unlock(:key)")).params(key=BOOTSTRAP_LOCK_KEY)
-            )
-
+        return BootstrapResponse(
+            message="System bootstrapped successfully",
+            organization_id=str(org.organization_id),
+            user_id=str(admin_user.user_id),
+            access_token=token,
+            token_type="bearer"
+        )
     async def login(self, request: LoginRequest) -> LoginResponse:
         user = await self.repo.get_by_email(request.email)
         if not user:
