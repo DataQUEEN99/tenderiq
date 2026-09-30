@@ -24,6 +24,17 @@ import {
   Terminal,
   Mail,
   Bell,
+  Plus,
+  Edit,
+  Trash2,
+  LogIn,
+  LogOut,
+  Upload,
+  Send,
+  FileCheck,
+  Building2,
+  MessageSquare,
+  Settings,
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { AuditLog } from '../types';
@@ -121,20 +132,6 @@ const resourceConfig: Record<string, { label: string; icon: React.ComponentType<
   auth: { label: 'Auth', icon: Shield },
 };
 
-import {
-  Plus,
-  Edit,
-  Trash2,
-  LogIn,
-  LogOut,
-  Upload,
-  Send,
-  FileCheck,
-  Building2,
-  MessageSquare,
-  Settings,
-} from 'lucide-react';
-
 export function AuditPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
@@ -155,8 +152,8 @@ export function AuditPage() {
   const total = auditData?.total || 0;
   const totalPages = Math.ceil(total / pageSize);
 
-  const uniqueActions = [...new Set(logs.map(log => log.action))].sort();
-  const uniqueResources = [...new Set(logs.map(log => log.resource_type))].sort();
+  const uniqueActions = [...new Set(logs.map(log => log.action).filter(Boolean))].sort();
+  const uniqueResources = [...new Set(logs.map(log => log.resource_type).filter(Boolean))].sort();
 
   const handleExport = () => {
     apiClient.exportAuditLogs({ search: searchQuery, action: actionFilter, resource_type: resourceFilter, date_from: dateFrom, date_to: dateTo })
@@ -439,7 +436,7 @@ export function AuditPage() {
                     {logs.map((log) => (
                       <TableRow key={log.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => { setSelectedLog(log); setShowDetailsDialog(true); }}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">
-                          {format(parseISO(log.created_at), 'MMM d, yyyy HH:mm:ss')}
+                          {log.created_at ? format(new Date(log.created_at), 'MMM d, yyyy HH:mm:ss') : '—'}
                         </TableCell>
                         <TableCell>{getActionBadge(log.action)}</TableCell>
                         <TableCell>{getResourceBadge(log.resource_type)}</TableCell>
@@ -518,7 +515,7 @@ export function AuditPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Timestamp</p>
-                  <p className="font-mono text-xs">{format(parseISO(selectedLog.created_at), 'MMMM d, yyyy HH:mm:ss')}</p>
+                  <p className="font-mono text-xs">{selectedLog.created_at ? format(new Date(selectedLog.created_at), 'MMMM d, yyyy HH:mm:ss') : '—'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Action</p>

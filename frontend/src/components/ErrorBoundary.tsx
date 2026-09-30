@@ -1,7 +1,8 @@
 'use client';
 
+import * as React from 'react';
 import { Component, ReactNode, ErrorInfo } from 'react';
-import { AlertTriangle, RefreshCw, Home, BugReport } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, Bug, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 
@@ -42,18 +43,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       errorInfo,
     });
 
-    // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('ErrorBoundary caught an error:', error, errorInfo);
-    }
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
 
-    // Call optional onError callback
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
-
-    // Here you could send error to logging service (Sentry, etc.)
-    // this.logErrorToService(error, errorInfo);
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps): void {
@@ -75,39 +69,60 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     });
   };
 
+  clearSessionAndLogin = (): void => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      console.error('Failed to clear storage:', e);
+    }
+    window.location.href = '/login';
+  };
+
   render(): ReactNode {
     if (this.state.hasError) {
       // If custom fallback provided, use it
       if (this.props.fallback) {
+        if (React.isValidElement(this.props.fallback)) {
+          return React.cloneElement(this.props.fallback as React.ReactElement<any>, {
+            error: this.state.error,
+            resetErrorBoundary: this.reset,
+          });
+        }
         return this.props.fallback;
       }
 
       // Default fallback UI
       return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-3 bg-destructive/10 rounded-full w-fit">
+          <Card className="w-full max-w-lg shadow-xl border-destructive/20">
+            <CardHeader className="text-center pb-2">
+              <div className="mx-auto mb-3 p-3 bg-destructive/10 rounded-full w-fit">
                 <AlertTriangle className="h-8 w-8 text-destructive" />
               </div>
-              <CardTitle>Something went wrong</CardTitle>
+              <CardTitle className="text-xl font-bold">Something went wrong</CardTitle>
               <CardDescription>
-                We're sorry, but an unexpected error occurred. Our team has been notified.
+                An error occurred while loading this view. You can inspect the error below or reset your session.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="text-left">
-                  <summary className="cursor-pointer font-medium text-sm text-muted-foreground mb-2">
-                    Error Details (Development)
-                  </summary>
-                  <pre className="bg-muted p-3 rounded text-xs overflow-x-auto text-foreground">
-                    {this.state.error.toString()}
-                    {this.state.errorInfo?.componentStack && (
-                      '\n\n' + this.state.errorInfo.componentStack
-                    )}
-                  </pre>
-                </details>
+              {this.state.error && (
+                <div className="text-left rounded-md bg-destructive/10 border border-destructive/20 p-3">
+                  <p className="text-xs font-semibold text-destructive mb-1 break-words">
+                    {this.state.error.name}: {this.state.error.message}
+                  </p>
+                  <details open className="mt-2 text-xs">
+                    <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
+                      Stack Trace
+                    </summary>
+                    <pre className="bg-background/80 p-2.5 rounded text-[11px] overflow-x-auto max-h-48 whitespace-pre-wrap text-foreground/80 mt-1 font-mono">
+                      {this.state.error.stack || this.state.error.toString()}
+                      {this.state.errorInfo?.componentStack && (
+                        '\n\nComponent Stack:' + this.state.errorInfo.componentStack
+                      )}
+                    </pre>
+                  </details>
+                </div>
               )}
               <div className="flex gap-2">
                 <Button
@@ -119,24 +134,21 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => window.location.href = '/'}
+                  onClick={() => window.location.href = '/dashboard'}
                   className="flex-1"
                 >
                   <Home className="mr-2 h-4 w-4" />
-                  Go Home
+                  Dashboard
                 </Button>
               </div>
               <Button
-                variant="ghost"
+                variant="destructive"
                 size="sm"
-                onClick={() => {
-                  // In a real app, this would open a bug report modal or navigate to support
-                  console.log('Report bug clicked');
-                }}
+                onClick={this.clearSessionAndLogin}
                 className="w-full"
               >
-                <BugReport className="mr-2 h-4 w-4" />
-                Report Issue
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear Session & Return to Login
               </Button>
             </CardContent>
           </Card>

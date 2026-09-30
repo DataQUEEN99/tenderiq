@@ -122,7 +122,9 @@ export function ChatPage() {
     queryFn: () => apiClient.listTenders({ limit: 100 }),
   });
 
-  const activeSession = sessions?.find(s => s.id === activeSessionId) || null;
+  const sessionList: ChatSession[] = Array.isArray(sessions) ? sessions : (sessions as any)?.items || [];
+  const tenderList: Tender[] = Array.isArray(tenders) ? (tenders as any) : (tenders as any)?.items || [];
+  const activeSession = sessionList.find(s => s.id === activeSessionId) || null;
 
   const { data: messages, isLoading: messagesLoading } = useQuery({
     queryKey: ['chat-messages', activeSessionId],
@@ -244,7 +246,7 @@ export function ChatPage() {
                     <SelectValue placeholder="Select a tender..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {tenders?.map(tender => (
+                    {tenderList.map(tender => (
                       <SelectItem key={tender.id} value={tender.id}>
                         {tender.title} ({tender.reference_number})
                       </SelectItem>
@@ -272,7 +274,7 @@ export function ChatPage() {
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
-              {sessions?.map(session => (
+              {sessionList.map(session => (
                 <div
                   key={session.id}
                   className={cn(
@@ -309,11 +311,11 @@ export function ChatPage() {
                     </DropdownMenu>
                   </div>
                   <p className="text-xs opacity-60 mt-1">
-                    {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
+                    {session.updated_at ? formatDistanceToNow(new Date(session.updated_at), { addSuffix: true }) : ''}
                   </p>
                 </div>
               ))}
-              {sessions?.length === 0 && (
+              {sessionList.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <MessageSquare className="mx-auto h-12 w-12 mb-3 opacity-30" />
                   <p className="text-sm">No chat sessions yet</p>
@@ -433,7 +435,7 @@ export function ChatPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-1 opacity-60">
-                            <span className="text-xs">{format(new Date(message.created_at), 'HH:mm')}</span>
+                            <span className="text-xs">{message.created_at ? format(new Date(message.created_at), 'HH:mm') : ''}</span>
                             {message.role === 'assistant' && (
                               <>
                                 <TooltipProvider>

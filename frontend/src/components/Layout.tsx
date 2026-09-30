@@ -21,7 +21,6 @@ import {
   Moon,
   Sun,
   Monitor,
-  Organization,
 } from 'lucide-react';
 import {
   Button,
@@ -246,20 +245,20 @@ export function Layout() {
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
                     <p className="text-xs text-muted-foreground capitalize">{user?.role?.toLowerCase()}</p>
                   </div>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" aria-hidden="true" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Organization className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <DropdownMenuItem onClick={() => navigate('/company-profile')} className="cursor-pointer">
+                    <Building2 className="mr-2 h-4 w-4" aria-hidden="true" />
                     Organization
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
                     Logout
                   </DropdownMenuItem>

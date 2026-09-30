@@ -213,7 +213,7 @@ The system implements **defense-in-depth** isolation:
 
 ## Modular Architecture & Enhancements (Phases 5 - 14)
 
-The backend has been consolidated into an enterprise-grade **Modular Monolith** adhering to the Backend Architecture Design ([`docs/BAD.md`](file:///c:/Users/Rajkumar%20Pandey/Downloads/tenderiq-main/tenderiq-main/docs/BAD.md)):
+The backend has been consolidated into an enterprise-grade **Modular Monolith** adhering to the Backend Architecture Design (`docs/BAD.md`):
 
 ### 1. Elimination of Direct DB Access in Services (Phase 5)
 - All raw `self.session.execute(select(...))` queries moved into their owning domain repositories (`TenderRepository`, `ProposalRepository`, `ExportRepository`, `AuthRepository`, etc.).
@@ -260,7 +260,7 @@ The backend has been consolidated into an enterprise-grade **Modular Monolith** 
 - Synchronized `.env.example` and Alembic migrations.
 
 ### 9. Architectural Documentation (Phase 13)
-- Detailed entity schemas, transaction boundaries, tenant isolation rules, and AI ingestion/generation pipelines are comprehensively documented in [`docs/BAD.md`](file:///c:/Users/Rajkumar%20Pandey/Downloads/tenderiq-main/tenderiq-main/docs/BAD.md).
+- Detailed entity schemas, transaction boundaries, tenant isolation rules, and AI ingestion/generation pipelines are comprehensively documented in `docs/BAD.md`.
 
 ### 10. Security, Transaction-Safety & Layering Remediation (Phase 14)
 Implemented multi-tenant hardening, transaction-safety, and layering fixes according to the Backend Remediation Plan:

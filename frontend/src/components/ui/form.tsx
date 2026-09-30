@@ -65,7 +65,7 @@ export interface FormProviderProps<TFieldValues extends FieldValues = FieldValue
   children: React.ReactNode;
 }
 
-export function FormProvider<TFieldValues extends FieldValues = FieldValues>({
+function FormProvider<TFieldValues extends FieldValues = FieldValues>({
   children,
   ...props
 }: FormProviderProps<TFieldValues>) {

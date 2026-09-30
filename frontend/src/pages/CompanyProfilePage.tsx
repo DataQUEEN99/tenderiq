@@ -71,7 +71,8 @@ import {
   AvatarFallback,
 } from '../components/ui/avatar';
 import { cn } from '../utils/cn';
-import { Alert, AlertDescription } from '../components/ui/alert';
+import { Skeleton } from '../components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 
 const PLACEHOLDER_LOGO = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiByeD0iMTYiIGZpbGw9IiNFNUU3ZWIiLz4KPHBhdGggZD0iTTY0IDQwQzU1LjcxNTcgNDAgNDggNDcuNzE1NyA0OCA1NlM1NS43MTU3IDcyIDY0IDcyUzc2IDY0LjI4NDMgNzYgNTZTNzAuMjg0MyA0MCA2NCA0MFoiIHN0cm9rZT0iIzk0QTNDNyIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik02NCA3NkM1NS43MTU3IDc2IDQ4IDY4LjI4NDMgNDggNjBTNTUuNzE1NyA0NCA2NCA0NEM3Mi4yODQzIDQ0IDgwIDUxLjcxNTcgODAgNjBTNzIuMjg0MyA3NiA2NCA3NloiIHN0cm9rZT0iIzk0QTNDNyIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjwvc3ZnPgo=';
 
@@ -239,7 +240,12 @@ export function CompanyProfilePage() {
 
             {/* Form Section */}
             <div className="flex-1 space-y-6">
-              <form onSubmit={(e) => { e.preventDefault(); updateProfileMutation.mutate(new FormData(e.currentTarget) as any); }}>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = Object.fromEntries(formData.entries());
+                updateProfileMutation.mutate(data as any);
+              }}>
                 <Tabs defaultValue="company" className="w-full">
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="company">Company Info</TabsTrigger>
@@ -254,7 +260,7 @@ export function CompanyProfilePage() {
                         <Input
                           id="name"
                           name="name"
-                          defaultValue={profile.name}
+                          defaultValue={(profile as any)?.name || profile?.company_name || ''}
                           placeholder="Enter company name"
                           required
                         />
@@ -458,7 +464,7 @@ export function CompanyProfilePage() {
                       </Badge>
                     </td>
                     <td className="py-3 text-sm text-muted-foreground">
-                      {format(new Date(currentUser.created_at), 'MMM d, yyyy')}
+                      {currentUser?.created_at ? format(new Date(currentUser.created_at), 'MMM d, yyyy') : '—'}
                     </td>
                     <td className="py-3">
                       <Button variant="ghost" size="icon">

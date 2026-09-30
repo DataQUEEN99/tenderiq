@@ -66,7 +66,7 @@ import { format } from 'date-fns';
 import { cn } from '../utils/cn';
 
 const statusOptions = [
-  { value: '', label: 'All Statuses' },
+  { value: 'all', label: 'All Statuses' },
   { value: 'Draft', label: 'Draft' },
   { value: 'Published', label: 'Published' },
   { value: 'In Progress', label: 'In Progress' },
@@ -95,10 +95,10 @@ export function TendersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['tenders', page, pageSize, search, statusFilter],
+    queryKey: ['tenders', page, pageSize],
     queryFn: () => apiClient.listTenders({ page, page_size: pageSize }),
   });
 
@@ -125,6 +125,17 @@ export function TendersPage() {
     );
   }
 
+  const filteredTenders = (data?.items || []).filter((tender) => {
+    if (statusFilter && statusFilter !== 'all' && tender.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const matchTitle = tender.title?.toLowerCase().includes(q);
+      const matchRef = tender.reference_number?.toLowerCase().includes(q);
+      if (!matchTitle && !matchRef) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -134,7 +145,7 @@ export function TendersPage() {
           <p className="text-muted-foreground">Manage your tender opportunities</p>
         </div>
         <Button asChild>
-          <Link to="/tenders/new">
+          <Link to="/tenders">
             <Plus className="mr-2 h-4 w-4" />
             New Tender
           </Link>
@@ -202,21 +213,13 @@ export function TendersPage() {
             </div>
           ) : (
             <>
-              {data?.items.length === 0 ? (
+              {filteredTenders.length === 0 ? (
                 <div className="p-12 text-center">
                   <FileText className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
                   <h3 className="text-lg font-medium mb-2">No tenders found</h3>
                   <p className="text-muted-foreground mb-4">
-                    {search || statusFilter ? 'Try adjusting your filters' : 'Get started by creating your first tender'}
+                    {search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Get started by creating your first tender'}
                   </p>
-                  {!search && !statusFilter && (
-                    <Button asChild>
-                      <Link to="/tenders/new">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Tender
-                      </Link>
-                    </Button>
-                  )}
                 </div>
               ) : (
                 <Table>
@@ -231,7 +234,7 @@ export function TendersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.items.map((tender: Tender) => (
+                    {filteredTenders.map((tender: Tender) => (
                       <TableRow key={tender.id}>
                         <TableCell>
                           <Link to={`/tenders/${tender.id}`} className="font-medium hover:text-primary">

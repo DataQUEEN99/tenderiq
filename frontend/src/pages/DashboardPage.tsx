@@ -261,10 +261,10 @@ export function DashboardPage() {
         apiClient.listProposals({ page_size: 100 }),
       ]);
 
-      const totalTenders = tenders.total;
-      const activeTenders = tenders.items.filter((t) => ['Published', 'In Progress'].includes(t.status)).length;
-      const totalProposals = proposals.total;
-      const wonProposals = proposals.items.filter((p) => p.status === 'Won').length;
+      const totalTenders = tenders?.total || (tenders?.items?.length ?? 0);
+      const activeTenders = (tenders?.items || []).filter((t) => ['Published', 'In Progress'].includes(t.status)).length;
+      const totalProposals = proposals?.total || (proposals?.items?.length ?? 0);
+      const wonProposals = (proposals?.items || []).filter((p) => p.status === 'Won').length;
       const winRate = totalProposals > 0 ? Math.round((wonProposals / totalProposals) * 100) : 0;
 
       return {
@@ -273,7 +273,7 @@ export function DashboardPage() {
         total_proposals: totalProposals,
         won_proposals: wonProposals,
         win_rate: winRate,
-        pending_ai_tasks: 0, // Would need separate endpoint
+        pending_ai_tasks: 0,
       } as DashboardStats;
     },
   });

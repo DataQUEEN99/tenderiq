@@ -240,7 +240,8 @@ export function ProposalDetailPage() {
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
-            </DropdownMenuContent          </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" asChild>
             <Link to={`/exports/new?proposal=${proposal.id}`}>
               <Download className="mr-2 h-4 w-4" />

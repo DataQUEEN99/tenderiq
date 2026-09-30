@@ -424,10 +424,11 @@ class ApiClient {
   }
 
   // ==================== Chat ====================
-  async createChatSession(data: ChatSessionCreate): Promise<ChatSession> {
+  async createChatSession(data: ChatSessionCreate | string): Promise<ChatSession> {
+    const payload = typeof data === 'string' ? { tender_id: data } : data;
     return this.request<ChatSession>('/chat/sessions', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -446,10 +447,13 @@ class ApiClient {
     return this.request<ChatMessage[]>(`/chat/sessions/${sessionId}/history`);
   }
 
-  async sendChatMessage(data: ChatMessageCreate): Promise<ChatMessageResponse> {
+  async sendChatMessage(data: ChatMessageCreate | string, messageContent?: string): Promise<ChatMessageResponse> {
+    const payload = typeof data === 'string'
+      ? { session_id: data, message: messageContent, content: messageContent }
+      : data;
     return this.request<ChatMessageResponse>('/chat/messages', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -537,10 +541,13 @@ class ApiClient {
     });
   }
 
-  async changePassword(data: ChangePasswordRequest): Promise<void> {
+  async changePassword(dataOrCurrent: ChangePasswordRequest | string, newPassword?: string): Promise<void> {
+    const payload = typeof dataOrCurrent === 'string'
+      ? { current_password: dataOrCurrent, new_password: newPassword }
+      : dataOrCurrent;
     await this.request('/users/me/password', {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   }
 

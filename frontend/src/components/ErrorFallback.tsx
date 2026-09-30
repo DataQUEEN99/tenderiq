@@ -21,7 +21,7 @@ export function ErrorFallback({
   resetErrorBoundary,
   title = 'Something went wrong',
   description = 'An unexpected error occurred. Please try again.',
-  showDetails = process.env.NODE_ENV === 'development',
+  showDetails = true,
   onHome,
   onRetry,
   variant = 'card',

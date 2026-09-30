@@ -68,7 +68,7 @@ import { format } from 'date-fns';
 import { cn } from '../utils/cn';
 
 const statusOptions = [
-  { value: '', label: 'All Statuses' },
+  { value: 'all', label: 'All Statuses' },
   { value: 'Draft', label: 'Draft' },
   { value: 'In Review', label: 'In Review' },
   { value: 'Finalized', label: 'Finalized' },
@@ -97,10 +97,10 @@ export function ProposalsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['proposals', page, pageSize, search, statusFilter],
+    queryKey: ['proposals', page, pageSize],
     queryFn: () => apiClient.listProposals({ page, page_size: pageSize }),
   });
 
@@ -127,6 +127,15 @@ export function ProposalsPage() {
     );
   }
 
+  const filteredProposals = (data?.items || []).filter((proposal) => {
+    if (statusFilter && statusFilter !== 'all' && proposal.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!proposal.title?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -136,7 +145,7 @@ export function ProposalsPage() {
           <p className="text-muted-foreground">Manage your proposal drafts and submissions</p>
         </div>
         <Button asChild>
-          <Link to="/proposals/new">
+          <Link to="/proposals">
             <Plus className="mr-2 h-4 w-4" />
             New Proposal
           </Link>
@@ -206,21 +215,13 @@ export function ProposalsPage() {
             </div>
           ) : (
             <>
-              {data?.items.length === 0 ? (
+              {filteredProposals.length === 0 ? (
                 <div className="p-12 text-center">
                   <Briefcase className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
                   <h3 className="text-lg font-medium mb-2">No proposals found</h3>
                   <p className="text-muted-foreground mb-4">
-                    {search || statusFilter ? 'Try adjusting your filters' : 'Get started by creating your first proposal'}
+                    {search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Get started by creating your first proposal'}
                   </p>
-                  {!search && !statusFilter && (
-                    <Button asChild>
-                      <Link to="/proposals/new">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Proposal
-                      </Link>
-                    </Button>
-                  )}
                 </div>
               ) : (
                 <Table>
@@ -236,7 +237,7 @@ export function ProposalsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.items.map((proposal: Proposal) => (
+                    {filteredProposals.map((proposal: Proposal) => (
                       <TableRow key={proposal.id}>
                         <TableCell>
                           <Link to={`/proposals/${proposal.id}`} className="font-medium hover:text-primary">
@@ -245,7 +246,7 @@ export function ProposalsPage() {
                         </TableCell>
                         <TableCell>
                           <span className="text-muted-foreground max-w-[200px] truncate block">
-                            {proposal.tender?.title || 'Unknown Tender'}
+                            {(proposal as any).tender_title || (proposal as any).tender?.title || proposal.tender_id || 'Tender'}
                           </span>
                         </TableCell>
                         <TableCell>v{proposal.version}</TableCell>
