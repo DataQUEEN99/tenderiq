@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import UUID
+from uuid import UUID
 from app.shared.database.session import get_db
 from app.modules.user_management.service import UserManagementService
 from app.modules.user_management.schemas import (

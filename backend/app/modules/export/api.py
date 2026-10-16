@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import UUID
+from uuid import UUID
 from fastapi.responses import StreamingResponse
 from typing import List
 import io

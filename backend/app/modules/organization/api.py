@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import UUID
+from uuid import UUID
 from app.shared.database.session import get_db
 from app.modules.organization.service import OrganizationService
 from app.modules.organization.schemas import (
@@ -10,7 +10,7 @@ from app.modules.organization.schemas import (
 from app.shared.security.auth_dependencies import get_current_user, require_permission
 from app.modules.authentication.models import User, UserRole
 from app.shared.security.permissions import Permission
-from app.shared.exceptions.custom_exceptions import PermissionDeniedException
+from app.shared.exceptions.custom_exceptions import AuthorizationException
 
 
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
 def _verify_tenant_access(current_user: User, organization_id: UUID):
     if current_user.role != UserRole.ADMIN and current_user.organization_id != organization_id:
-        raise PermissionDeniedException("Access denied to organization outside tenant boundary.")
+        raise AuthorizationException("Access denied to organization outside tenant boundary.")
 
 
 @router.post("", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from sqlalchemy.dialects.postgresql import UUID
+from uuid import UUID
 from app.modules.audit.models import AuditAction
 
 

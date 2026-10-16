@@ -1,6 +1,7 @@
 from typing import List
 from langchain_core.embeddings import Embeddings
-from langchain_community.embeddings import OllamaEmbeddings, GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from app.config import get_settings
 
 

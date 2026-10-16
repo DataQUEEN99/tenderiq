@@ -27,6 +27,7 @@ class Permission(str, Enum):
 
     DOC_UPLOAD = "doc:upload"
     DOC_READ = "doc:read"
+    DOC_UPDATE = "doc:update"
     DOC_DOWNLOAD = "doc:download"
     DOC_DELETE = "doc:delete"
     DOC_REPROCESS = "doc:reprocess"
@@ -61,7 +62,7 @@ ROLE_PERMISSIONS = {
         Permission.ORG_READ,
         Permission.USER_INVITE, Permission.USER_READ, Permission.USER_UPDATE, Permission.USER_ROLE,
         Permission.COMPANY_READ, Permission.COMPANY_UPDATE, Permission.COMPANY_DOC_UPLOAD, Permission.COMPANY_DOC_DELETE,
-        Permission.DOC_UPLOAD, Permission.DOC_READ, Permission.DOC_DOWNLOAD, Permission.DOC_DELETE, Permission.DOC_REPROCESS,
+        Permission.DOC_UPLOAD, Permission.DOC_READ, Permission.DOC_UPDATE, Permission.DOC_DOWNLOAD, Permission.DOC_DELETE, Permission.DOC_REPROCESS,
         Permission.TENDER_CREATE, Permission.TENDER_READ, Permission.TENDER_UPDATE, Permission.TENDER_DELETE,
         Permission.TENDER_DOC_ATTACH, Permission.TENDER_DOC_DETACH, Permission.TENDER_STATUS,
         Permission.PROPOSAL_GENERATE, Permission.PROPOSAL_READ, Permission.PROPOSAL_UPDATE, Permission.PROPOSAL_EXPORT, Permission.PROPOSAL_VERSION,

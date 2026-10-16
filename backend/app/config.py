@@ -1,7 +1,8 @@
 import os
 from functools import lru_cache
-from pydantic_settings import BaseSettings
 from typing import List
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -10,17 +11,17 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     app_version: str = "1.0.0"
 
-    database_url: str = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/tenderiq")
+    database_url: str = os.getenv("DATABASE_URL") or (
+        "postgresql+asyncpg://"
+        + "tenderiq:tenderiq@localhost:5432/tenderiq"
+    )
     database_echo: bool = False
 
-    # Redis
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-    # JWT settings (compatible with both naming conventions)
     jwt_secret: str = os.getenv("JWT_SECRET", "change-me-in-production")
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
-    # Aliases for backward compatibility
     secret_key: str = os.getenv("JWT_SECRET", "change-me-in-production")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
@@ -35,7 +36,7 @@ class Settings(BaseSettings):
     ollama_chat_model: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
     ollama_embedding_model: str = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
 
-    chroma_mode: str = os.getenv("CHROMA_MODE", "http")  # "local" or "http"
+    chroma_mode: str = os.getenv("CHROMA_MODE", "http")
     chroma_host: str = os.getenv("CHROMA_HOST", "localhost")
     chroma_port: int = int(os.getenv("CHROMA_PORT", "8000"))
     chromadb_path: str = os.getenv("CHROMADB_PATH", "./chroma_db")
@@ -55,8 +56,14 @@ class Settings(BaseSettings):
     chunk_overlap: int = 200
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
-
-    cors_origins: List[str] = ["*"]
+    cors_origins: List[str] = [
+        origin.strip()
+        for origin in os.getenv(
+            "ALLOWED_ORIGINS",
+            "http://localhost:5173,http://localhost:3000",
+        ).split(",")
+        if origin.strip()
+    ]
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
