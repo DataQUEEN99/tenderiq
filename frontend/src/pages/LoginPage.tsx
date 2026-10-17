@@ -19,7 +19,7 @@ interface LoginForm {
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +43,30 @@ export function LoginPage() {
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const email = window.prompt('Enter your Google account email to sign in via Google SSO:');
+      if (!email || !email.trim()) {
+        setIsLoading(false);
+        return;
+      }
+      const trimmedEmail = email.trim().toLowerCase();
+      const namePart = trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
+      const formattedName = namePart ? namePart.charAt(0).toUpperCase() + namePart.slice(1) : 'Google User';
+      await loginGoogle({
+        email: trimmedEmail,
+        full_name: formattedName,
+      });
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err?.message || 'Google sign in failed');
     } finally {
       setIsLoading(false);
     }
@@ -138,7 +162,7 @@ export function LoginPage() {
               <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" disabled={isLoading}>
+          <Button variant="outline" type="button" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"

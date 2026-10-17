@@ -53,7 +53,6 @@ class ChatRepository(TenantRepository[ChatSession]):
         session = await self.get_by_id(session_id, organization_id)
         if not session:
             return False
-        session.is_deleted = True
         session.status = ChatSessionStatus.ARCHIVED
         await self.session.flush()
         return True

@@ -79,10 +79,14 @@ class ApiClient {
     }
   }
 
-  private getHeaders(includeAuth = true): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+  private getHeaders(includeAuth = true, isFormData = false): Record<string, string> {
+    const headers: Record<string, string> = {
+      'bypass-tunnel-reminder': 'true',
     };
+
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (includeAuth && this.organizationId) {
       headers['x-organization-id'] = this.organizationId;
@@ -135,36 +139,173 @@ class ApiClient {
 
   // ==================== Auth ====================
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>('/auth/login', {
+    const rawResponse = await this.request<any>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     }, false); // Don't include auth headers for login
 
+    const orgId = rawResponse.organization?.organization_id || rawResponse.organization?.id || rawResponse.user?.organization_id || '';
+    const userId = rawResponse.user?.user_id || rawResponse.user?.id || '';
+    const accessToken = rawResponse.access_token || '';
+    const refreshToken = rawResponse.refresh_token || rawResponse.access_token || '';
+
+    // Normalize user object
+    const user: User = {
+      id: userId,
+      email: rawResponse.user?.email || '',
+      full_name: rawResponse.user?.full_name || '',
+      role: rawResponse.user?.role || 'Admin',
+      is_active: rawResponse.user?.is_active ?? true,
+      organization_id: orgId,
+      created_at: rawResponse.user?.created_at || new Date().toISOString(),
+      updated_at: rawResponse.user?.updated_at || new Date().toISOString(),
+    };
+
+    // Normalize organization object
+    const organization: Organization = {
+      id: orgId,
+      name: rawResponse.organization?.name || 'TenderIQ Organization',
+      slug: rawResponse.organization?.slug || 'tenderiq-org',
+      status: (rawResponse.organization?.status as any) || 'Active',
+      is_deleted: rawResponse.organization?.is_deleted ?? false,
+      created_at: rawResponse.organization?.created_at || new Date().toISOString(),
+      updated_at: rawResponse.organization?.updated_at || new Date().toISOString(),
+    };
+
     // Store tokens after successful login
     this.setAuth(
-      response.organization.id,
-      response.user.id,
-      response.access_token,
-      response.refresh_token
+      orgId,
+      userId,
+      accessToken,
+      refreshToken
     );
 
-    return response;
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: rawResponse.token_type || 'bearer',
+      user,
+      organization,
+    };
   }
 
-  async registerOrg(data: RegisterOrgRequest): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>('/auth/register-org', {
+  async registerOrg(data: any): Promise<AuthResponse> {
+    const orgName = data.org_name || data.organization_name || 'My Organization';
+    const email = data.email || data.admin_email || '';
+    const password = data.password || data.admin_password || '';
+    const fullName = data.full_name || data.admin_full_name || email.split('@')[0];
+
+    let rawResponse: any;
+    try {
+      rawResponse = await this.request<any>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          org_name: orgName,
+          organization_name: orgName,
+          email: email,
+          admin_email: email,
+          password: password,
+          admin_password: password,
+          full_name: fullName,
+          admin_full_name: fullName,
+        }),
+      }, false);
+    } catch (err: any) {
+      // Fallback to bootstrap if register not found
+      rawResponse = await this.request<any>('/auth/bootstrap', {
+        method: 'POST',
+        body: JSON.stringify({
+          organization_name: orgName,
+          admin_email: email,
+          admin_password: password,
+          admin_full_name: fullName,
+        }),
+      }, false);
+    }
+
+    const orgId = rawResponse.organization?.organization_id || rawResponse.organization?.id || rawResponse.organization_id || rawResponse.user?.organization_id || '';
+    const userId = rawResponse.user?.user_id || rawResponse.user?.id || rawResponse.user_id || '';
+    const accessToken = rawResponse.access_token || '';
+    const refreshToken = rawResponse.refresh_token || rawResponse.access_token || '';
+
+    const user: User = {
+      id: userId,
+      email: rawResponse.user?.email || email,
+      full_name: rawResponse.user?.full_name || fullName,
+      role: rawResponse.user?.role || 'Admin',
+      is_active: rawResponse.user?.is_active ?? true,
+      organization_id: orgId,
+      created_at: rawResponse.user?.created_at || new Date().toISOString(),
+      updated_at: rawResponse.user?.updated_at || new Date().toISOString(),
+    };
+
+    const organization: Organization = {
+      id: orgId,
+      name: rawResponse.organization?.name || orgName,
+      slug: rawResponse.organization?.slug || orgName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      status: (rawResponse.organization?.status as any) || 'Active',
+      is_deleted: false,
+      created_at: rawResponse.organization?.created_at || new Date().toISOString(),
+      updated_at: rawResponse.organization?.updated_at || new Date().toISOString(),
+    };
+
+    this.setAuth(
+      orgId,
+      userId,
+      accessToken,
+      refreshToken
+    );
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: rawResponse.token_type || 'bearer',
+      user,
+      organization,
+    };
+  }
+
+  async loginGoogle(data: { email?: string; full_name?: string; id_token?: string }): Promise<AuthResponse> {
+    const rawResponse = await this.request<any>('/auth/google', {
       method: 'POST',
       body: JSON.stringify(data),
     }, false);
 
-    this.setAuth(
-      response.organization.id,
-      response.user.id,
-      response.access_token,
-      response.refresh_token
-    );
+    const orgId = rawResponse.organization?.organization_id || rawResponse.organization?.id || rawResponse.user?.organization_id || '';
+    const userId = rawResponse.user?.user_id || rawResponse.user?.id || '';
+    const accessToken = rawResponse.access_token || '';
+    const refreshToken = rawResponse.refresh_token || rawResponse.access_token || '';
 
-    return response;
+    const user: User = {
+      id: userId,
+      email: rawResponse.user?.email || data.email || '',
+      full_name: rawResponse.user?.full_name || data.full_name || '',
+      role: rawResponse.user?.role || 'Admin',
+      is_active: rawResponse.user?.is_active ?? true,
+      organization_id: orgId,
+      created_at: rawResponse.user?.created_at || new Date().toISOString(),
+      updated_at: rawResponse.user?.updated_at || new Date().toISOString(),
+    };
+
+    const organization: Organization = {
+      id: orgId,
+      name: rawResponse.organization?.name || 'TenderIQ Organization',
+      slug: rawResponse.organization?.slug || 'tenderiq-org',
+      status: (rawResponse.organization?.status as any) || 'Active',
+      is_deleted: false,
+      created_at: rawResponse.organization?.created_at || new Date().toISOString(),
+      updated_at: rawResponse.organization?.updated_at || new Date().toISOString(),
+    };
+
+    this.setAuth(orgId, userId, accessToken, refreshToken);
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: rawResponse.token_type || 'bearer',
+      user,
+      organization,
+    };
   }
 
   async logout(): Promise<void> {
@@ -199,7 +340,28 @@ class ApiClient {
 
   // ==================== Organization ====================
   async getOrganization(): Promise<Organization> {
-    return this.request<Organization>('/organizations');
+    try {
+      const res = await this.request<any>('/organizations/me');
+      return {
+        id: res.organization_id || res.id || '',
+        name: res.name || 'TenderIQ Organization',
+        slug: res.slug || 'tenderiq-org',
+        status: res.status || 'Active',
+        is_deleted: res.is_deleted ?? false,
+        created_at: res.created_at || new Date().toISOString(),
+        updated_at: res.updated_at || new Date().toISOString(),
+      };
+    } catch {
+      return {
+        id: this.organizationId || '',
+        name: 'TenderIQ Organization',
+        slug: 'tenderiq-org',
+        status: 'Active',
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
   }
 
   async updateOrganization(data: Partial<Organization>): Promise<Organization> {
@@ -235,7 +397,7 @@ class ApiClient {
 
     const response = await fetch(`${API_BASE_URL}/company-profiles/documents`, {
       method: 'POST',
-      headers: this.getHeaders() as HeadersInit,
+      headers: this.getHeaders(true, true) as HeadersInit,
       body: formData,
     });
 
@@ -254,18 +416,34 @@ class ApiClient {
     if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.page_size) searchParams.set('page_size', params.page_size.toString());
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    return this.request<PaginatedResponse<Tender>>(`/tenders${query}`);
+    const res = await this.request<any>(`/tenders${query}`);
+    const items = (res.items || []).map((t: any) => ({
+      ...t,
+      id: t.tender_id || t.id,
+    }));
+    return {
+      ...res,
+      items,
+    };
   }
 
   async getTender(tenderId: string): Promise<Tender> {
-    return this.request<Tender>(`/tenders/${tenderId}`);
+    const res = await this.request<any>(`/tenders/${tenderId}`);
+    return {
+      ...res,
+      id: res.tender_id || res.id,
+    };
   }
 
   async createTender(data: Partial<Tender>): Promise<Tender> {
-    return this.request<Tender>('/tenders', {
+    const res = await this.request<any>('/tenders', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return {
+      ...res,
+      id: res.tender_id || res.id,
+    };
   }
 
   async updateTender(tenderId: string, data: Partial<Tender>): Promise<Tender> {
@@ -288,7 +466,7 @@ class ApiClient {
 
     const response = await fetch(`${API_BASE_URL}/documents/upload`, {
       method: 'POST',
-      headers: this.getHeaders() as HeadersInit,
+      headers: this.getHeaders(true, true) as HeadersInit,
       body: formData,
     });
 
@@ -425,36 +603,85 @@ class ApiClient {
 
   // ==================== Chat ====================
   async createChatSession(data: ChatSessionCreate | string): Promise<ChatSession> {
-    const payload = typeof data === 'string' ? { tender_id: data } : data;
-    return this.request<ChatSession>('/chat/sessions', {
+    const payload = typeof data === 'string'
+      ? { title: 'Tender Chat', reference_id: data, context_type: 'Tender' }
+      : data;
+    const res = await this.request<any>('/chat/sessions', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    return {
+      id: res.chat_session_id || res.id,
+      title: res.title || 'New Chat',
+      status: res.status || 'Active',
+      organization_id: res.organization_id,
+      created_by: res.created_by,
+      created_at: res.created_at || new Date().toISOString(),
+      updated_at: res.updated_at || new Date().toISOString(),
+    };
   }
 
   async getChatSession(sessionId: string): Promise<ChatSession> {
-    return this.request<ChatSession>(`/chat/sessions/${sessionId}`);
+    const res = await this.request<any>(`/chat/sessions/${sessionId}`);
+    return {
+      id: res.chat_session_id || res.id,
+      title: res.title || 'Chat',
+      status: res.status || 'Active',
+      organization_id: res.organization_id,
+      created_by: res.created_by,
+      created_at: res.created_at || new Date().toISOString(),
+      updated_at: res.updated_at || new Date().toISOString(),
+    };
   }
 
   async listChatSessions(params?: { tender_id?: string }): Promise<ChatSession[]> {
     const searchParams = new URLSearchParams();
     if (params?.tender_id) searchParams.set('tender_id', params.tender_id);
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    return this.request<ChatSession[]>(`/chat/sessions${query}`);
+    const res = await this.request<any>(`/chat/sessions${query}`);
+    const items = Array.isArray(res) ? res : (res.items || []);
+    return items.map((item: any) => ({
+      id: item.chat_session_id || item.id,
+      title: item.title || 'Chat Session',
+      status: item.status || 'Active',
+      organization_id: item.organization_id,
+      created_by: item.created_by,
+      created_at: item.created_at || new Date().toISOString(),
+      updated_at: item.updated_at || new Date().toISOString(),
+    }));
   }
 
   async getChatHistory(sessionId: string): Promise<ChatMessage[]> {
-    return this.request<ChatMessage[]>(`/chat/sessions/${sessionId}/history`);
+    return this.getChatMessages(sessionId);
   }
 
   async sendChatMessage(data: ChatMessageCreate | string, messageContent?: string): Promise<ChatMessageResponse> {
-    const payload = typeof data === 'string'
-      ? { session_id: data, message: messageContent, content: messageContent }
-      : data;
-    return this.request<ChatMessageResponse>('/chat/messages', {
+    const sessionId = typeof data === 'string' ? data : (data as any).session_id;
+    const content = typeof data === 'string' ? (messageContent || '') : ((data as any).message || (data as any).content || '');
+    const contextDocIds = (data as any)?.context_document_ids || [];
+
+    const res = await this.request<any>(`/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        message: content,
+        context_document_ids: contextDocIds,
+      }),
     });
+
+    const msg = res.message || res;
+    return {
+      message: {
+        chat_message_id: msg.chat_message_id || msg.id,
+        role: msg.role || 'assistant',
+        content: msg.content || '',
+        tokens_used: msg.tokens_used,
+        model_used: msg.model_used,
+        session_id: msg.session_id || sessionId,
+        created_at: msg.created_at || new Date().toISOString(),
+      },
+      sources: res.sources || [],
+      confidence: res.confidence ?? 1.0,
+    };
   }
 
   // ==================== Exports ====================
@@ -585,7 +812,32 @@ class ApiClient {
 
   // ==================== Chat Extended ====================
   async getChatMessages(sessionId: string): Promise<ChatMessage[]> {
-    return this.request<ChatMessage[]>(`/chat/sessions/${sessionId}/messages`);
+    try {
+      const res = await this.request<any>(`/chat/sessions/${sessionId}/messages`);
+      const items = Array.isArray(res) ? res : (res.messages || []);
+      return items.map((m: any) => ({
+        id: m.chat_message_id || m.id,
+        role: m.role,
+        content: m.content,
+        tokens_used: m.tokens_used,
+        model_used: m.model_used,
+        session_id: m.session_id || sessionId,
+        created_at: m.created_at || new Date().toISOString(),
+        updated_at: m.updated_at || m.created_at || new Date().toISOString(),
+      }));
+    } catch {
+      const detail = await this.request<any>(`/chat/sessions/${sessionId}/detail`);
+      return (detail.messages || []).map((m: any) => ({
+        id: m.chat_message_id || m.id,
+        role: m.role,
+        content: m.content,
+        tokens_used: m.tokens_used,
+        model_used: m.model_used,
+        session_id: m.session_id || sessionId,
+        created_at: m.created_at || new Date().toISOString(),
+        updated_at: m.updated_at || m.created_at || new Date().toISOString(),
+      }));
+    }
   }
 
   async deleteChatSession(sessionId: string): Promise<void> {

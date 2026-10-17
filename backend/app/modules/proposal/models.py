@@ -44,9 +44,6 @@ class Proposal(BaseModel):
 
 class ProposalSection(BaseModel):
     __tablename__ = "proposal_sections"
-    __table_args__ = (
-        Index("ix_proposal_sections_proposal_id", "proposal_id"),
-    )
 
     # Explicit PK
     proposal_section_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -92,7 +89,7 @@ class ComplianceMatrix(BaseModel):
 
     tender_id = Column(UUID(as_uuid=True), ForeignKey("tenders.tender_id", ondelete="CASCADE"), nullable=False)
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False)
-    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False, index=True)
+    proposal_id = Column(UUID(as_uuid=True), ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False)
     version = Column(Integer, nullable=False, default=1)
     overall_compliance_score = Column(Integer, nullable=True)
     mandatory_met = Column(Integer, nullable=False, default=0)

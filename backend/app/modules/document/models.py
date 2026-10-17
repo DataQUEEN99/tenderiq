@@ -50,7 +50,7 @@ class Document(BaseModel):
     vector_collection = Column(String(100), nullable=True)
 
     organization = relationship("Organization", back_populates="documents")
-    uploader = relationship("User", back_populates="documents")
+    uploader = relationship("User", foreign_keys=[uploaded_by])
 
     tender = relationship("TenderDocument", back_populates="document", uselist=False)
     proposal = relationship("ProposalDocument", back_populates="document", uselist=False)

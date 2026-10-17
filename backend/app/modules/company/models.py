@@ -35,10 +35,6 @@ class CompanyProfile(BaseModel):
 
 class CompanyDocument(BaseModel):
     __tablename__ = "company_documents"
-    __table_args__ = (
-        Index("ix_company_documents_company_profile_id", "company_profile_id"),
-        Index("ix_company_documents_document_id", "document_id"),
-    )
 
     # Explicit PK
     company_document_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -1,3 +1,4 @@
+from uuid import UUID
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
@@ -19,7 +20,7 @@ class OrganizationStatusUpdate(BaseModel):
 
 
 class OrganizationResponse(BaseModel):
-    organization_id: str
+    organization_id: UUID | str
     name: str
     slug: str
     status: OrganizationStatus

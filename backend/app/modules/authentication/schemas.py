@@ -1,3 +1,4 @@
+from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 from typing import Optional
@@ -9,23 +10,28 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1)
 
 
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: "UserResponse"
-
-
 class UserResponse(BaseModel):
-    user_id: str
+    user_id: UUID
     email: str
     full_name: str
     role: UserRole
     is_active: bool
-    organization_id: str
+    organization_id: UUID
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+from app.modules.organization.schemas import OrganizationResponse
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    user: UserResponse
+    organization: Optional[OrganizationResponse] = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -54,3 +60,20 @@ class BootstrapResponse(BaseModel):
     user_id: str
     access_token: str
     token_type: str = "bearer"
+
+
+class RegisterOrgRequest(BaseModel):
+    org_name: Optional[str] = None
+    organization_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    admin_email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    admin_password: Optional[str] = None
+    full_name: Optional[str] = None
+    admin_full_name: Optional[str] = None
+
+
+class GoogleAuthRequest(BaseModel):
+    id_token: Optional[str] = None
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None

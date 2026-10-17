@@ -112,7 +112,7 @@ class TenderRepository(TenantRepository[Tender]):
                     and_(
                         Document.document_id == doc_id,
                         Document.organization_id == organization_id,
-                        Document.is_deleted == False,
+                        Document.status != DocumentStatus.DELETED,
                     )
                 )
             )
@@ -159,7 +159,6 @@ class TenderRepository(TenantRepository[Tender]):
         tender = await self.get_by_id(tender_id, organization_id)
         if not tender:
             return False
-        tender.is_deleted = True
         tender.status = TenderStatus.ARCHIVED
         await self.session.flush()
         return True

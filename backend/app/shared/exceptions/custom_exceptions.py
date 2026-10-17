@@ -48,3 +48,7 @@ class StorageException(TenderIQException):
 class InternalServerException(TenderIQException):
     def __init__(self, message: str):
         super().__init__(message, "INTERNAL_SERVER_ERROR")
+
+
+# Alias for compatibility
+PermissionDeniedException = AuthorizationException

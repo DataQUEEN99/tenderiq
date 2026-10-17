@@ -39,22 +39,22 @@ class TenderService:
 
     async def get_by_id(self, tender_id: UUID, organization_id: UUID) -> TenderResponse:
         tender = await self.repo.get_by_id(tender_id, organization_id)
-        if not tender or tender.is_deleted:
+        if not tender or tender.status == TenderStatus.ARCHIVED:
             raise ResourceNotFoundException("Tender not found")
         return TenderResponse.model_validate(tender)
 
     async def get_detail(self, tender_id: UUID, organization_id: UUID) -> TenderDetailResponse:
         tender = await self.repo.get_by_id_with_docs(tender_id, organization_id)
-        if not tender or tender.is_deleted:
+        if not tender or tender.status == TenderStatus.ARCHIVED:
             raise ResourceNotFoundException("Tender not found")
 
         response = TenderDetailResponse.model_validate(tender)
-        response.documents = [doc.document for doc in tender.documents if not doc.document.is_deleted]
+        response.documents = [doc.document for doc in tender.documents if doc.document and doc.document.status != DocumentStatus.DELETED]
         return response
 
     async def update(self, tender_id: UUID, organization_id: UUID, request: TenderUpdate) -> TenderResponse:
         tender = await self.repo.get_by_id(tender_id, organization_id)
-        if not tender or tender.is_deleted:
+        if not tender or tender.status == TenderStatus.ARCHIVED:
             raise ResourceNotFoundException("Tender not found")
 
         if request.reference_number and request.reference_number != tender.reference_number:
@@ -84,7 +84,7 @@ class TenderService:
 
     async def update_status(self, tender_id: UUID, organization_id: UUID, request: TenderStatusUpdate) -> TenderResponse:
         tender = await self.repo.get_by_id(tender_id, organization_id)
-        if not tender or tender.is_deleted:
+        if not tender or tender.status == TenderStatus.ARCHIVED:
             raise ResourceNotFoundException("Tender not found")
 
         valid_transitions = {
@@ -106,7 +106,7 @@ class TenderService:
 
     async def attach_documents(self, tender_id: UUID, organization_id: UUID, document_ids: List[UUID]) -> List[str]:
         tender = await self.repo.get_by_id(tender_id, organization_id)
-        if not tender or tender.is_deleted:
+        if not tender or tender.status == TenderStatus.ARCHIVED:
             raise ResourceNotFoundException("Tender not found")
 
         from app.modules.document.service import DocumentService
@@ -126,7 +126,7 @@ class TenderService:
 
     async def detach_document(self, tender_id: UUID, organization_id: UUID, document_id: UUID) -> None:
         tender = await self.repo.get_by_id(tender_id, organization_id)
-        if not tender or tender.is_deleted:
+        if not tender or tender.status == TenderStatus.ARCHIVED:
             raise ResourceNotFoundException("Tender not found")
 
         success = await self.repo.detach_document(tender_id, organization_id, document_id)

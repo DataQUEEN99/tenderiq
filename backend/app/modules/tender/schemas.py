@@ -37,7 +37,7 @@ class TenderDocumentAttach(BaseModel):
 
 
 class TenderResponse(BaseModel):
-    tender_id: str
+    tender_id: UUID | str
     title: str
     reference_number: str
     description: Optional[str]
@@ -47,8 +47,8 @@ class TenderResponse(BaseModel):
     currency: str
     contract_duration: Optional[str]
     status: TenderStatus
-    organization_id: str
-    created_by: str
+    organization_id: UUID | str
+    created_by: UUID | str
     created_at: datetime
     updated_at: datetime
 
@@ -90,9 +90,9 @@ class TenderSummaryCreate(BaseModel):
 
 
 class TenderSummaryResponse(TenderSummaryBase):
-    tender_summary_id: str
-    tender_id: str
-    organization_id: str
+    tender_summary_id: UUID | str
+    tender_id: UUID | str
+    organization_id: UUID | str
     version: int
     is_current: bool
     generated_at: datetime
@@ -105,7 +105,7 @@ class TenderSummaryResponse(TenderSummaryBase):
 
 # EligibilityAnalysis schemas
 class EligibilityAnalysisBase(BaseModel):
-    company_profile_id: str
+    company_profile_id: UUID | str
     overall_eligible: bool
     eligibility_score: Optional[int] = Field(None, ge=0, le=100)
     criteria_results: List[Dict[str, Any]] = Field(..., min_length=1)
@@ -130,9 +130,9 @@ class EligibilityAnalysisCreate(BaseModel):
 
 
 class EligibilityAnalysisResponse(EligibilityAnalysisBase):
-    eligibility_analysis_id: str
-    tender_id: str
-    organization_id: str
+    eligibility_analysis_id: UUID | str
+    tender_id: UUID | str
+    organization_id: UUID | str
     version: int
     is_current: bool
     generated_at: datetime
@@ -145,7 +145,7 @@ class EligibilityAnalysisResponse(EligibilityAnalysisBase):
 
 # ComplianceMatrix schemas
 class ComplianceMatrixBase(BaseModel):
-    proposal_id: str
+    proposal_id: UUID | str
     overall_compliance_score: Optional[int] = Field(None, ge=0, le=100)
     mandatory_met: int = 0
     mandatory_total: int = 0
@@ -174,10 +174,10 @@ class ComplianceMatrixCreate(BaseModel):
 
 
 class ComplianceMatrixResponse(ComplianceMatrixBase):
-    compliance_matrix_id: str
-    tender_id: str
-    organization_id: str
-    proposal_id: str
+    compliance_matrix_id: UUID | str
+    tender_id: UUID | str
+    organization_id: UUID | str
+    proposal_id: UUID | str
     version: int
     is_current: bool
     generated_at: datetime

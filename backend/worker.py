@@ -15,6 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from celery_app import celery_app
+# Import all models to ensure SQLAlchemy mapper registry is configured
+import app.main
 
 
 if __name__ == "__main__":

@@ -18,10 +18,12 @@ from app.ai.facade import AIFacade
 
 # Celery tasks (imported lazily to avoid circular imports)
 def get_process_document_task():
+    import celery_app
     from app.tasks.document_tasks import process_document
     return process_document
 
 def get_reprocess_document_task():
+    import celery_app
     from app.tasks.document_tasks import reprocess_document
     return reprocess_document
 
@@ -49,8 +51,9 @@ class DocumentService:
             raise ValidationException(f"File size exceeds maximum allowed ({self.settings.max_file_size_mb}MB)")
 
         extension = os.path.splitext(original_filename)[1].lower()
-        if extension not in self.settings.allowed_extensions:
-            raise ValidationException(f"File type not allowed. Allowed: {self.settings.allowed_extensions}")
+        allowed = [".pdf", ".docx", ".doc", ".txt"]
+        if extension not in allowed:
+            raise ValidationException(f"File type not allowed. Allowed: {allowed}")
 
         storage_path = generate_storage_path(str(organization_id), original_filename)
 
@@ -101,7 +104,7 @@ class DocumentService:
         app_logger.info(f"Document uploaded, processing queued", extra={
             "document_id": str(document.document_id),
             "organization_id": str(organization_id),
-            "filename": original_filename,
+            "doc_filename": original_filename,
             "status": document.status.value
         })
 
@@ -109,7 +112,7 @@ class DocumentService:
 
     async def get_by_id(self, document_id: UUID, organization_id: UUID) -> DocumentResponse:
         document = await self.repo.get_by_id(document_id, organization_id)
-        if not document or document.is_deleted:
+        if not document or document.status == DocumentStatus.DELETED:
             raise ResourceNotFoundException("Document not found")
         return DocumentResponse.model_validate(document)
 
@@ -143,13 +146,13 @@ class DocumentService:
 
     async def get_status(self, document_id: UUID, organization_id: UUID) -> DocumentStatusResponse:
         document = await self.repo.get_by_id(document_id, organization_id)
-        if not document or document.is_deleted:
+        if not document or document.status == DocumentStatus.DELETED:
             raise ResourceNotFoundException("Document not found")
         return DocumentStatusResponse.model_validate(document)
 
     async def reprocess(self, document_id: UUID, organization_id: UUID) -> DocumentResponse:
         document = await self.repo.get_by_id(document_id, organization_id)
-        if not document or document.is_deleted:
+        if not document or document.status == DocumentStatus.DELETED:
             raise ResourceNotFoundException("Document not found")
 
         # Set status to PROCESSING
@@ -176,7 +179,7 @@ class DocumentService:
 
     async def get_file_content(self, document_id: UUID, organization_id: UUID) -> Tuple[bytes, str, str]:
         document = await self.repo.get_by_id(document_id, organization_id)
-        if not document or document.is_deleted:
+        if not document or document.status == DocumentStatus.DELETED:
             raise ResourceNotFoundException("Document not found")
 
         storage_path = f"organizations/{organization_id}/documents/{document.filename}"
@@ -186,7 +189,7 @@ class DocumentService:
     async def verify_documents_exist(self, organization_id: UUID, document_ids: List[UUID]) -> bool:
         for doc_id in document_ids:
             doc = await self.repo.get_by_id(doc_id, organization_id)
-            if not doc or doc.is_deleted:
+            if not doc or doc.status == DocumentStatus.DELETED:
                 raise ValidationException(f"Document {doc_id} not found or not accessible")
         return True
 
@@ -200,7 +203,7 @@ class DocumentService:
         """Get real-time processing progress for a document."""
         # Verify document exists and belongs to user's org
         document = await self.repo.get_by_id(document_id, organization_id)
-        if not document or document.is_deleted:
+        if not document or document.status == DocumentStatus.DELETED:
             raise ResourceNotFoundException("Document not found")
 
         # Get processing record
@@ -244,7 +247,7 @@ class DocumentService:
             doc_id = result.get("document_id")
             if doc_id:
                 doc = await self.repo.get_by_id(uuid_lib.UUID(doc_id), organization_id)
-                if doc and not doc.is_deleted:
+                if doc and doc.status != DocumentStatus.DELETED:
                     search_results.append(DocumentSearchResult(
                         document=DocumentResponse.model_validate(doc),
                         relevance_score=result.get("relevance_score", 0.0),

@@ -29,6 +29,7 @@ class Permission(str, Enum):
     DOC_READ = "doc:read"
     DOC_UPDATE = "doc:update"
     DOC_DOWNLOAD = "doc:download"
+    DOC_UPDATE = "doc:update"
     DOC_DELETE = "doc:delete"
     DOC_REPROCESS = "doc:reprocess"
 

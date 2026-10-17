@@ -1,0 +1,12 @@
+{
+  "installCommand": "cd frontend && pnpm install --no-frozen-lockfile",
+  "buildCommand": "cd frontend && pnpm run build",
+  "outputDirectory": "frontend/dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

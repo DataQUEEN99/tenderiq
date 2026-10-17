@@ -11,6 +11,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   registerOrg: (data: { org_name: string; email: string; password: string; full_name: string }) => Promise<void>;
+  loginGoogle: (data: { email?: string; full_name?: string; id_token?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -80,6 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginGoogle = async (data: { email?: string; full_name?: string; id_token?: string }) => {
+    setIsLoading(true);
+    try {
+      const response: AuthResponse = await apiClient.loginGoogle(data);
+      setUser(response.user);
+      setOrganization(response.organization);
+      localStorage.setItem('user', JSON.stringify(response.user));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     setIsLoading(true);
     try {
@@ -101,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user && !!organization,
         login,
         registerOrg,
+        loginGoogle,
         logout,
         refreshUser,
       }}

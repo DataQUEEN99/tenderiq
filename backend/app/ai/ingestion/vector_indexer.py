@@ -33,9 +33,21 @@ class VectorIndexer:
             )
 
     def _get_collection(self, name: str):
+        class ChromaOfflineEmbeddingFunction:
+            def __call__(self, input: List[str]) -> List[List[float]]:
+                import hashlib
+                embeddings = []
+                for text in input:
+                    h = hashlib.sha256(text.encode("utf-8")).digest()
+                    vec = [float(b) / 255.0 for b in h]
+                    vec = (vec * (384 // len(vec) + 1))[:384]
+                    embeddings.append(vec)
+                return embeddings
+
         return self.client.get_or_create_collection(
             name=name,
-            metadata={"hnsw:space": "cosine"}
+            metadata={"hnsw:space": "cosine"},
+            embedding_function=ChromaOfflineEmbeddingFunction()
         )
 
     async def index(self, collection_name: str, chunks: List[str], embeddings: List[List[float]],

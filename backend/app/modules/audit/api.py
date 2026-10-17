@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -21,22 +22,33 @@ router = APIRouter(prefix="/audit", tags=["Audit"])
 async def list_audit_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    action: AuditAction = Query(None),
-    resource_type: str = Query(None, max_length=50),
-    resource_id: UUID = Query(None),
-    user_id: UUID = Query(None),
-    date_from: datetime = Query(None),
-    date_to: datetime = Query(None),
+    action: Optional[str] = Query(None),
+    resource_type: Optional[str] = Query(None),
+    resource_id: Optional[UUID] = Query(None),
+    user_id: Optional[UUID] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.AUDIT_READ)),
 ):
+    audit_action = None
+    if action and action.lower() != "all":
+        try:
+            audit_action = AuditAction(action.upper())
+        except ValueError:
+            pass
+
+    res_type = None
+    if resource_type and resource_type.lower() != "all":
+        res_type = resource_type
+
     service = AuditService(db)
     return await service.list_logs(
         organization_id=current_user.organization_id,
         page=page,
         page_size=page_size,
-        action=action,
-        resource_type=resource_type,
+        action=audit_action,
+        resource_type=res_type,
         resource_id=resource_id,
         user_id=user_id,
         date_from=date_from,

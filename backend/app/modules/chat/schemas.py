@@ -1,3 +1,4 @@
+from uuid import UUID
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List, Dict, Any
@@ -16,13 +17,18 @@ class ChatSessionUpdate(BaseModel):
 
 
 class ChatSessionResponse(BaseModel):
-    chat_session_id: str
-    title: Optional[str]
+    chat_session_id: UUID
+    id: Optional[UUID] = None
+    title: Optional[str] = None
     status: ChatSessionStatus
-    organization_id: str
-    created_by: str
+    organization_id: UUID
+    created_by: UUID
     created_at: datetime
     updated_at: datetime
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.id is None:
+            self.id = self.chat_session_id
 
     class Config:
         from_attributes = True
@@ -34,13 +40,21 @@ class ChatMessageCreate(BaseModel):
 
 
 class ChatMessageResponse(BaseModel):
-    chat_message_id: str
+    chat_message_id: UUID
+    id: Optional[UUID] = None
     role: str
     content: str
-    tokens_used: Optional[int]
-    model_used: Optional[str]
-    session_id: str
+    tokens_used: Optional[int] = None
+    model_used: Optional[str] = None
+    session_id: UUID
     created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.id is None:
+            self.id = self.chat_message_id
+        if self.updated_at is None:
+            self.updated_at = self.created_at
 
     class Config:
         from_attributes = True

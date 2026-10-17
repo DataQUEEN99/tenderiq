@@ -62,6 +62,15 @@ import {
 import {
   Skeleton,
 } from '../components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../components/ui/dialog';
+import { Textarea } from '../components/ui/textarea';
 import { format } from 'date-fns';
 import { cn } from '../utils/cn';
 
@@ -97,9 +106,66 @@ export function TendersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // New Tender Modal State
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formRefNumber, setFormRefNumber] = useState('');
+  const [formIssuingAuth, setFormIssuingAuth] = useState('');
+  const [formEstimatedVal, setFormEstimatedVal] = useState('');
+  const [formContractDuration, setFormContractDuration] = useState('');
+  const [formDeadline, setFormDeadline] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['tenders', page, pageSize],
     queryFn: () => apiClient.listTenders({ page, page_size: pageSize }),
+  });
+
+  const createTenderMutation = useMutation({
+    mutationFn: async () => {
+      setIsSubmitting(true);
+      try {
+        const tender = await apiClient.createTender({
+          title: formTitle,
+          reference_number: formRefNumber,
+          issuing_authority: formIssuingAuth || undefined,
+          estimated_value: formEstimatedVal || undefined,
+          contract_duration: formContractDuration || undefined,
+          description: formDescription || undefined,
+          submission_deadline: formDeadline ? new Date(formDeadline).toISOString() : undefined,
+          status: 'Draft',
+        });
+
+        if (selectedFile && tender.id) {
+          await apiClient.uploadDocument(selectedFile, tender.id, 'Tender');
+        }
+
+        return tender;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    onSuccess: (tender) => {
+      queryClient.invalidateQueries({ queryKey: ['tenders'] });
+      setShowCreateDialog(false);
+      // Reset form
+      setFormTitle('');
+      setFormRefNumber('');
+      setFormIssuingAuth('');
+      setFormEstimatedVal('');
+      setFormContractDuration('');
+      setFormDeadline('');
+      setFormDescription('');
+      setSelectedFile(null);
+      if (tender?.id) {
+        navigate(`/tenders/${tender.id}`);
+      }
+    },
+    onError: (err: any) => {
+      alert(`Failed to create tender: ${err?.message || 'Unknown error'}`);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -144,11 +210,9 @@ export function TendersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Tenders</h1>
           <p className="text-muted-foreground">Manage your tender opportunities</p>
         </div>
-        <Button asChild>
-          <Link to="/tenders">
-            <Plus className="mr-2 h-4 w-4" />
-            New Tender
-          </Link>
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Tender
         </Button>
       </div>
 
@@ -320,6 +384,129 @@ export function TendersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Tender Modal */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Tender</DialogTitle>
+            <DialogDescription>
+              Enter the RFP details and optionally attach the RFP document to start AI analysis.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!formTitle.trim() || !formRefNumber.trim()) {
+                alert('Title and Reference Number are required.');
+                return;
+              }
+              createTenderMutation.mutate();
+            }}
+            className="space-y-4 py-2"
+          >
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tender Title *</label>
+              <Input
+                placeholder="e.g. Healthcare IT Cloud Modernization RFP"
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Reference Number *</label>
+                <Input
+                  placeholder="e.g. RFP-2026-HC-101"
+                  value={formRefNumber}
+                  onChange={(e) => setFormRefNumber(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Issuing Authority</label>
+                <Input
+                  placeholder="e.g. Ministry of Health"
+                  value={formIssuingAuth}
+                  onChange={(e) => setFormIssuingAuth(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Estimated Value</label>
+                <Input
+                  placeholder="e.g. 5000000"
+                  value={formEstimatedVal}
+                  onChange={(e) => setFormEstimatedVal(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Contract Duration</label>
+                <Input
+                  placeholder="e.g. 24 Months"
+                  value={formContractDuration}
+                  onChange={(e) => setFormContractDuration(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Submission Deadline</label>
+                <Input
+                  type="date"
+                  value={formDeadline}
+                  onChange={(e) => setFormDeadline(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description / Scope Summary</label>
+              <Textarea
+                placeholder="Brief summary of tender scope, objectives, or key deliverables..."
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+              <label className="text-sm font-medium block">Attach Tender RFP Document (.pdf, .docx, .txt)</label>
+              <Input
+                type="file"
+                accept=".pdf,.docx,.txt"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  setSelectedFile(file || null);
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Document will be chunked, embedded, and indexed into the Chroma vector database automatically.
+              </p>
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Creating Tender...' : 'Create Tender'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

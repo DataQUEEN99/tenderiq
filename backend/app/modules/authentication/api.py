@@ -4,13 +4,26 @@ from app.shared.database.session import get_db
 from app.modules.authentication.service import AuthService
 from app.modules.authentication.schemas import (
     LoginRequest, LoginResponse, UserResponse, ChangePasswordRequest,
-    BootstrapRequest, BootstrapResponse
+    BootstrapRequest, BootstrapResponse, RegisterOrgRequest, GoogleAuthRequest
 )
 from app.shared.security.auth_dependencies import get_current_user
 from app.modules.authentication.models import User
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.post("/register", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register-org", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
+async def register_org(request: RegisterOrgRequest, db: AsyncSession = Depends(get_db)):
+    service = AuthService(db)
+    return await service.register_organization(request)
+
+
+@router.post("/google", response_model=LoginResponse, status_code=status.HTTP_200_OK)
+async def google_auth(request: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+    service = AuthService(db)
+    return await service.login_google(request)
 
 
 @router.post("/bootstrap", response_model=BootstrapResponse, status_code=status.HTTP_201_CREATED)

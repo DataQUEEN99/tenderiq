@@ -22,7 +22,7 @@ class DocumentRepository(TenantRepository[Document]):
                 and_(
                     Document.organization_id == organization_id,
                     Document.file_hash == file_hash,
-                    Document.is_deleted == False
+                    Document.status != DocumentStatus.DELETED
                 )
             )
         )

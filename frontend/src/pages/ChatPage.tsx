@@ -178,16 +178,27 @@ export function ChatPage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  const handleSendMessage = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!messageInput.trim() || !activeSessionId || isTyping) return;
+  const handleSendMessage = (eOrContent?: React.FormEvent | string) => {
+    let content = messageInput.trim();
+    if (typeof eOrContent === 'string') {
+      content = eOrContent.trim();
+    } else if (eOrContent && 'preventDefault' in eOrContent) {
+      eOrContent.preventDefault();
+    }
 
-    const content = messageInput.trim();
+    if (!content || !activeSessionId || isTyping) return;
+
     setMessageInput('');
     setIsTyping(true);
-    sendMessageMutation.mutate({ sessionId: activeSessionId, content }, {
-      onSettled: () => setIsTyping(false),
-    });
+    sendMessageMutation.mutate(
+      { sessionId: activeSessionId, content },
+      {
+        onSettled: () => setIsTyping(false),
+        onError: (err: any) => {
+          alert('Failed to send message: ' + (err?.message || 'Unknown error'));
+        },
+      }
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -198,8 +209,7 @@ export function ChatPage() {
   };
 
   const handleSuggestedQuestion = (question: string) => {
-    setMessageInput(question);
-    handleSendMessage();
+    handleSendMessage(question);
   };
 
   const handleNewSession = () => {

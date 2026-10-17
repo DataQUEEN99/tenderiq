@@ -4,6 +4,7 @@ from app.config import get_settings
 from app.shared.exceptions.handlers import register_exception_handlers
 from app.shared.middleware.request_id import RequestIDMiddleware
 from app.shared.middleware.logging import LoggingMiddleware
+import celery_app
 
 # Modular domain routers
 from app.modules.authentication.api import router as auth_router
@@ -32,7 +33,8 @@ app.add_middleware(LoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=[],
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

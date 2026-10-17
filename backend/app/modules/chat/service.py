@@ -31,22 +31,22 @@ class ChatService:
 
     async def get_session(self, session_id: UUID, organization_id: UUID) -> ChatSessionResponse:
         session = await self.repo.get_by_id(session_id, organization_id)
-        if not session or session.is_deleted:
+        if not session or session.status == ChatSessionStatus.ARCHIVED:
             raise ResourceNotFoundException("Chat session not found")
         return ChatSessionResponse.model_validate(session)
 
     async def get_session_detail(self, session_id: UUID, organization_id: UUID) -> ChatSessionDetailResponse:
         session = await self.repo.get_by_id_with_messages(session_id, organization_id)
-        if not session or session.is_deleted:
+        if not session or session.status == ChatSessionStatus.ARCHIVED:
             raise ResourceNotFoundException("Chat session not found")
 
         response = ChatSessionDetailResponse.model_validate(session)
-        response.messages = [ChatMessageResponse.model_validate(m) for m in session.messages if not m.is_deleted]
+        response.messages = [ChatMessageResponse.model_validate(m) for m in session.messages]
         return response
 
     async def update_session(self, session_id: UUID, organization_id: UUID, request: ChatSessionUpdate) -> ChatSessionResponse:
         session = await self.repo.get_by_id(session_id, organization_id)
-        if not session or session.is_deleted:
+        if not session or session.status == ChatSessionStatus.ARCHIVED:
             raise ResourceNotFoundException("Chat session not found")
 
         if request.title is not None:
@@ -59,7 +59,7 @@ class ChatService:
 
     async def send_message(self, session_id: UUID, organization_id: UUID, request: ChatRequest, current_user_id: UUID) -> ChatResponse:
         session = await self.repo.get_by_id(session_id, organization_id)
-        if not session or session.is_deleted:
+        if not session or session.status == ChatSessionStatus.ARCHIVED:
             raise ResourceNotFoundException("Chat session not found")
 
         user_message = ChatMessage(

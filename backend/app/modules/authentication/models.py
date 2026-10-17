@@ -27,3 +27,5 @@ class User(BaseModel):
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.organization_id"), nullable=False, index=True)
 
     organization = relationship("Organization", back_populates="users")
+    tenders = relationship("Tender", back_populates="creator")
+    proposals = relationship("Proposal", back_populates="creator")

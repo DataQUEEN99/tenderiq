@@ -69,3 +69,4 @@ nginx.conf
 *.bak
 *.backup
 *.tmp
+.vercel

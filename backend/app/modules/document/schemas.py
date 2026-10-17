@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List
 from app.modules.document.models import DocumentStatus, DocumentType
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from uuid import UUID
 
 
@@ -11,7 +10,7 @@ class DocumentUploadRequest(BaseModel):
 
 
 class DocumentResponse(BaseModel):
-    document_id: str
+    document_id: UUID | str
     filename: str
     original_filename: str
     file_hash: str
@@ -23,8 +22,8 @@ class DocumentResponse(BaseModel):
     error_message: Optional[str]
     chunk_count: int
     vector_collection: Optional[str]
-    organization_id: str
-    uploaded_by: str
+    organization_id: UUID | str
+    uploaded_by: UUID | str
     created_at: datetime
     updated_at: datetime
 

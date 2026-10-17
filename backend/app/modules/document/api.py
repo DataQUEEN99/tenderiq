@@ -23,6 +23,7 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 async def upload_document(
     file: UploadFile = File(...),
     document_type: DocumentType = Form(DocumentType.OTHER),
+    tender_id: Optional[UUID] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.DOC_UPLOAD)),
 ):
@@ -35,7 +36,7 @@ async def upload_document(
     request = DocumentUploadRequest(document_type=document_type)
     service = DocumentService(db)
 
-    return await service.upload(
+    doc_response = await service.upload(
         organization_id=current_user.organization_id,
         uploaded_by=current_user.user_id,
         file_content=file_content,
@@ -43,6 +44,19 @@ async def upload_document(
         mime_type=mime_type,
         request=request
     )
+
+    if tender_id:
+        from app.modules.tender.models import TenderDocument
+        import uuid
+        td = TenderDocument(
+            tender_document_id=uuid.uuid4(),
+            tender_id=tender_id,
+            document_id=doc_response.document_id,
+        )
+        db.add(td)
+        await db.commit()
+
+    return doc_response
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)

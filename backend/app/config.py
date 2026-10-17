@@ -1,8 +1,9 @@
 import os
 from functools import lru_cache
-from typing import List
-
+from typing import List, Any
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
+
 
 
 class Settings(BaseSettings):
@@ -31,7 +32,10 @@ class Settings(BaseSettings):
     gemini_chat_model: str = "gemini-1.5-pro"
     gemini_embedding_model: str = "models/embedding-001"
 
-    llm_provider: str = os.getenv("LLM_PROVIDER", "gemini")
+    groq_api_key: str = os.getenv("GROQ_API_KEY", "")
+    groq_chat_model: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+
+    llm_provider: str = os.getenv("LLM_PROVIDER", "groq" if os.getenv("GROQ_API_KEY") else "gemini")
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_chat_model: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
     ollama_embedding_model: str = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
@@ -49,8 +53,8 @@ class Settings(BaseSettings):
     storage_local_path: str = os.getenv("STORAGE_LOCAL_PATH", "./storage")
     max_file_size_mb: int = 50
     max_document_size: int = 52428800
-    allowed_file_types: List[str] = ["application/pdf"]
-    allowed_extensions: List[str] = [".pdf"]
+    allowed_file_types: List[str] = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/plain"]
+    allowed_extensions: List[str] = [".pdf", ".docx", ".doc", ".txt"]
     upload_dir: str = os.getenv("UPLOAD_DIR", "./data/uploads")
     chunk_size: int = 1000
     chunk_overlap: int = 200
@@ -66,6 +70,29 @@ class Settings(BaseSettings):
     ]
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def assemble_db_url(cls, v: Any) -> str:
+        if isinstance(v, str):
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
+                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return str(v)
+
+    @field_validator("allowed_file_types", "allowed_extensions", "cors_origins", mode="before")
+    @classmethod
+    def assemble_list(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [i.strip() for i in v.split(",") if i.strip()]
+        return v
 
     class Config:
         env_file = ".env"

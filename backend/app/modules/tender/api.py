@@ -87,6 +87,37 @@ async def attach_documents(
     return await service.attach_documents(tender_id, current_user.organization_id, doc_ids)
 
 
+@router.get("/{tender_id}/documents")
+async def list_tender_documents(
+    tender_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.TENDER_READ)),
+):
+    service = TenderService(db)
+    docs = await service.repo.get_attached_documents(tender_id, current_user.organization_id)
+    return [
+        {
+            "id": str(td.tender_document_id),
+            "tender_id": str(td.tender_id),
+            "document_id": str(td.document_id),
+            "created_at": td.created_at.isoformat() if td.created_at else None,
+            "updated_at": td.updated_at.isoformat() if td.updated_at else None,
+            "document": {
+                "id": str(td.document.document_id),
+                "document_id": str(td.document.document_id),
+                "original_filename": td.document.original_filename,
+                "filename": td.document.filename,
+                "file_size": td.document.file_size,
+                "mime_type": td.document.mime_type,
+                "extension": td.document.extension,
+                "status": td.document.status.value if hasattr(td.document.status, "value") else str(td.document.status),
+                "created_at": td.document.created_at.isoformat() if td.document.created_at else None,
+            } if td.document else None
+        }
+        for td in docs
+    ]
+
+
 @router.delete("/{tender_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def detach_document(
     tender_id: UUID,

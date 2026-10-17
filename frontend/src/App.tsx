@@ -12,7 +12,7 @@ import { CompanyProfilePage } from './pages/CompanyProfilePage';
 import { ChatPage } from './pages/ChatPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AuditPage } from './pages/AuditPage';
-import { LoadingSpinner } from './components/ui/Spinner';
+import { LoadingSpinner } from './components/ui/spinner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

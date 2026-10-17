@@ -70,6 +70,38 @@ async def send_message(
     return await service.send_message(session_id, current_user.organization_id, request, current_user.user_id)
 
 
+@router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
+@router.get("/sessions/{session_id}/history", response_model=List[ChatMessageResponse])
+async def get_session_messages(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.CHAT_READ)),
+):
+    service = ChatService(db)
+    detail = await service.get_session_detail(session_id, current_user.organization_id)
+    return detail.messages
+
+
+from pydantic import BaseModel as PyBaseModel
+class LegacyMessagePayload(PyBaseModel):
+    session_id: UUID
+    message: Optional[str] = None
+    content: Optional[str] = None
+    context_document_ids: List[str] = []
+
+@router.post("/messages", response_model=ChatMessageResponse)
+async def send_legacy_message(
+    payload: LegacyMessagePayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.CHAT_MESSAGE)),
+):
+    service = ChatService(db)
+    text = payload.message or payload.content or ""
+    chat_req = ChatRequest(message=text, context_document_ids=payload.context_document_ids)
+    res = await service.send_message(payload.session_id, current_user.organization_id, chat_req, current_user.user_id)
+    return res.message
+
+
 @router.get("/sessions", response_model=ChatSessionListResponse)
 async def list_sessions(
     page: int = Query(1, ge=1),

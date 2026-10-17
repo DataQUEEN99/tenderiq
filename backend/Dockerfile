@@ -51,5 +51,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run migrations then start server
-CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Run startup script (migrations, background worker, and uvicorn on dynamic $PORT)
+RUN chmod +x start.sh
+CMD ["./start.sh"]
