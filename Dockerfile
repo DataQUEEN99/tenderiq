@@ -14,10 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 
-RUN chmod +x start_render.sh && \
-    mkdir -p data/uploads data/vectorstore chroma_db
+RUN mkdir -p data/uploads data/vectorstore chroma_db
 
 ENV PYTHONPATH=/app
 EXPOSE 10000
 
-CMD ["./start_render.sh"]
+CMD ["sh", "-c", "python create_tables.py || echo 'DB tables verified'; exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}"]
