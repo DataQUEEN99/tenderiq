@@ -60,41 +60,7 @@ app.include_router(api_router, prefix=settings.api_prefix)
 
 @app.on_event("startup")
 async def startup():
-    """Run database migrations on startup.
-
-    Migration failure must never let the API start against an incompatible database.
-    """
-    import sys
-    import os
-    import subprocess
-
-    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    # Run alembic migrations
-    result = subprocess.run([
-        sys.executable, "-m", "alembic", "upgrade", "head"
-    ], cwd=backend_dir, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        error_msg = f"Migration note on startup: {result.stderr}"
-        print(error_msg, file=sys.stderr)
-        try:
-            from app.shared.database.session import Base, engine
-            import app.modules.authentication.models
-            import app.modules.organization.models
-            import app.modules.document.models
-            import app.modules.tender.models
-            import app.modules.proposal.models
-            import app.modules.chat.models
-            import app.modules.company.models
-            import app.modules.audit.models
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            print("Direct table initialization completed successfully")
-        except Exception as e:
-            print(f"Table initialization warning: {e}", file=sys.stderr)
-    else:
-        print("Database migrations completed on startup")
+    print(f"{settings.app_name} backend engine online and ready.")
 
 
 @app.get("/health")

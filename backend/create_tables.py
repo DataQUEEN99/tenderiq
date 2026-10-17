@@ -17,11 +17,9 @@ from app.modules.audit.models import AuditLog
 
 async def main():
     async with engine.begin() as conn:
-        print("Dropping all existing tables...")
-        await conn.run_sync(Base.metadata.drop_all)
-        print("Creating all tables via SQLAlchemy metadata...")
+        print("Ensuring all tables exist via SQLAlchemy metadata...")
         await conn.run_sync(Base.metadata.create_all)
-        print("All tables successfully created!")
+        print("All tables successfully verified/created!")
 
 if __name__ == "__main__":
     asyncio.run(main())
