@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     ollama_chat_model: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
     ollama_embedding_model: str = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
 
-    chroma_mode: str = os.getenv("CHROMA_MODE", "http")
+    chroma_mode: str = os.getenv("CHROMA_MODE", "local")
     chroma_host: str = os.getenv("CHROMA_HOST", "localhost")
     chroma_port: int = int(os.getenv("CHROMA_PORT", "8000"))
     chromadb_path: str = os.getenv("CHROMADB_PATH", "./chroma_db")
