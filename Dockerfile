@@ -90,11 +90,8 @@ RUN mkdir -p /app/backend/data/uploads \
              /app/backend/chroma_db \
              /var/log/supervisor
 
-# Expose web application port (HTTP) and direct API port
-EXPOSE 80 8000
-
-# Health check verifies the web server and backend are live
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
+# Expose cloud web service port
+EXPOSE 10000 8000
 
 ENTRYPOINT ["/entrypoint.sh"]
+
