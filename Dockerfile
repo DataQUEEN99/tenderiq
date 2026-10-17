@@ -34,6 +34,6 @@ COPY --chown=appuser:appuser backend/ .
 
 RUN mkdir -p data/uploads data/vectorstore chroma_db
 
-EXPOSE 8000 10000
+EXPOSE 8000
 
-CMD ["sh", "-c", "python -m alembic upgrade head || echo 'Migrations handled'; (python worker.py &); uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}"]
+CMD ["sh", "-c", "python -m alembic upgrade head || echo 'Migrations handled'; (python worker.py &); uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
