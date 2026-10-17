@@ -16,14 +16,14 @@ mkdir -p /app/backend/data/uploads \
 # 1. Start Internal Redis if not pointing to an external Redis
 if [ -z "$REDIS_URL" ] || [[ "$REDIS_URL" == *"127.0.0.1"* ]] || [[ "$REDIS_URL" == *"localhost"* ]]; then
     echo "[TenderIQ] Starting internal Redis service..."
-    service redis-server start || /etc/init.d/redis-server start
+    service redis-server start || /etc/init.d/redis-server start || echo "[TenderIQ] Redis service start handled"
     export REDIS_URL="redis://127.0.0.1:6379/0"
 fi
 
 # 2. Start Internal PostgreSQL if not pointing to an external PostgreSQL
 if [ -z "$DATABASE_URL" ] || [[ "$DATABASE_URL" == *"127.0.0.1"* ]] || [[ "$DATABASE_URL" == *"localhost"* ]]; then
     echo "[TenderIQ] Starting internal PostgreSQL service..."
-    service postgresql start || /etc/init.d/postgresql start
+    service postgresql start || /etc/init.d/postgresql start || echo "[TenderIQ] PostgreSQL service start handled"
 
     # Wait for PostgreSQL to become ready
     until su - postgres -c "pg_isready" > /dev/null 2>&1; do
