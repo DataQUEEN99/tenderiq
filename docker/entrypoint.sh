@@ -67,5 +67,12 @@ echo " API running on    : http://localhost/api/v1"
 echo " API Docs on       : http://localhost/docs"
 echo "======================================================================"
 
+# Configure Nginx to listen on cloud-assigned PORT (e.g. Render, Railway)
+if [ -n "$PORT" ] && [ "$PORT" != "80" ]; then
+    echo "[TenderIQ] Updating Nginx configuration to listen on port ${PORT}..."
+    sed -i "s/listen 80;/listen ${PORT};/g" /etc/nginx/nginx.conf
+fi
+
 # Start Supervisor to run Nginx and FastAPI
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+
